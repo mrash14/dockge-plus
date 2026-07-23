@@ -97,7 +97,7 @@ export async function checkStackAccess(socket : DockgeSocket, stackName : string
     const userType = user.user_type as string;
 
     if (requiredPermission) {
-        const allowed = await hasStackPermission(socket.userID, userType, requiredPermission, stackName, endpoint);
+        const allowed = await hasStackPermission(socket.userID, userType, stackName, endpoint, requiredPermission);
         if (!allowed) {
             throw new Error("Access denied to this stack.");
         }
