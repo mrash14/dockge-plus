@@ -1,14 +1,14 @@
 <template>
     <div>
-        <div class="mb-3">
-            <button class="btn btn-primary" @click="showAddDialog = true">
-                <font-awesome-icon icon="plus" class="me-1" />
-                {{ $t("Add User") }}
-            </button>
-        </div>
-
         <!-- User List Table -->
         <div class="shadow-box big-padding">
+            <div class="mb-3">
+                <button class="btn btn-primary" @click="showAddDialog = true">
+                    <font-awesome-icon icon="plus" class="me-1" />
+                    {{ $t("Add User") }}
+                </button>
+            </div>
+
             <table class="table table-hover" aria-label="User list">
                 <thead>
                     <tr>
@@ -55,7 +55,6 @@
             </table>
         </div>
 
-        <!-- Add/Edit User Dialog -->
         <BModal
             v-model="showAddDialog"
             :title="editingUser ? $t('Edit User') : $t('Add User')"
@@ -141,18 +140,24 @@
 
                 <!-- Existing access list -->
                 <div v-for="(access, index) in stackAccessList" :key="index" class="input-group mb-2">
+                    <select v-model="access.endpoint" class="form-select">
+                        <option value="">{{ $t('Endpoint (empty for local)') }}</option>
+                        <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint">
+                            {{ agent.name }} ({{ agentEndpoint }})
+                        </option>
+                    </select>
+
                     <input
                         v-model="access.stackName"
                         type="text"
                         class="form-control"
                         :placeholder="$t('stackName')"
+                        :list="'stack-list-' + index"
                     >
-                    <input
-                        v-model="access.endpoint"
-                        type="text"
-                        class="form-control"
-                        :placeholder="$t('Endpoint (empty for local)')"
-                    >
+                    <datalist :id="'stack-list-' + index">
+                        <option v-for="stackName in availableStacksForEndpoint(access.endpoint)" :key="stackName" :value="stackName"></option>
+                    </datalist>
+
                     <button class="btn btn-outline-danger" @click="removeAccessEntry(index)">
                         <font-awesome-icon icon="trash" />
                     </button>
@@ -247,7 +252,8 @@ export default {
             this.showAddDialog = true;
         },
 
-        saveUser() {
+        saveUser(e) {
+            e.preventDefault();
             if (this.editingUser) {
                 // Edit existing user
                 const data = {
@@ -263,6 +269,7 @@ export default {
                 this.$root.getSocket().emit("editUser", data, (res) => {
                     this.$root.toastRes(res);
                     if (res.ok) {
+                        this.showAddDialog = false;
                         this.loadUsers();
                     }
                 });
@@ -275,6 +282,7 @@ export default {
                 }, (res) => {
                     this.$root.toastRes(res);
                     if (res.ok) {
+                        this.showAddDialog = false;
                         this.loadUsers();
                     }
                 });
@@ -286,11 +294,13 @@ export default {
             this.showDeleteDialog = true;
         },
 
-        deleteUser() {
+        deleteUser(e) {
+            e.preventDefault();
             if (this.deletingUser) {
                 this.$root.getSocket().emit("deleteUser", this.deletingUser.id, (res) => {
                     this.$root.toastRes(res);
                     if (res.ok) {
+                        this.showDeleteDialog = false;
                         this.loadUsers();
                     }
                 });
@@ -324,13 +334,17 @@ export default {
             this.stackAccessList.splice(index, 1);
         },
 
-        saveStackAccess() {
+        saveStackAccess(e) {
+            e.preventDefault();
             if (this.accessUser) {
                 this.$root.getSocket().emit("setStackAccess", {
                     userId: this.accessUser.id,
                     stackAccess: this.stackAccessList.filter(a => a.stackName.trim() !== ""),
                 }, (res) => {
                     this.$root.toastRes(res);
+                    if (res.ok) {
+                        this.showAccessDialog = false;
+                    }
                 });
             }
         },
@@ -344,17 +358,36 @@ export default {
                 active: true,
             };
         },
+
+        availableStacksForEndpoint(endpoint) {
+            if (!endpoint || endpoint === "") {
+                return Object.keys(this.$root.stackList || {}).sort();
+            } else {
+                if (this.$root.allAgentStackList[endpoint] && this.$root.allAgentStackList[endpoint].stackList) {
+                    return Object.keys(this.$root.allAgentStackList[endpoint].stackList).sort();
+                }
+                return [];
+            }
+        },
     },
 };
 </script>
 
 <style lang="scss" scoped>
+@import "../../styles/vars.scss";
+
 .table {
     th {
         font-weight: 600;
         font-size: 14px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+}
+
+.text-muted {
+    .dark & {
+        color: $dark-font-color3 !important;
     }
 }
 </style>
