@@ -20,6 +20,7 @@ View Video: https://youtu.be/AWAlOQeNpgU?t=48
 - ⌨️ Interactive Editor for `compose.yaml`
 - 🦦 Interactive Web Terminal
 - 🕷️ (1.4.0 🆕) Multiple agents support - You can manage multiple stacks from different Docker hosts in one single interface
+- 🔐 **Role-Based Access Control (RBAC)** - Assign roles (Admin, Manager, Operator, Viewer) and specific stack permissions to users. Works across all agents natively! ([Read the guide](./ACL.md))
 - 🏪 Convert `docker run ...` commands into `compose.yaml`
 - 📙 File based structure - Dockge won't kidnap your compose files, they are stored on your drive as usual. You can interact with them using normal `docker compose` commands
 
