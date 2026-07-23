@@ -107,6 +107,65 @@ export const COMBINED_TERMINAL_ROWS = 20;
 
 export const ERROR_TYPE_VALIDATION = 1;
 
+// RBAC Role Constants
+export const ROLE_ADMIN = "admin";
+export const ROLE_MANAGER = "manager";
+export const ROLE_OPERATOR = "operator";
+export const ROLE_VIEWER = "viewer";
+
+/** All available roles ordered by privilege level (highest to lowest) */
+export const ALL_ROLES = [ROLE_ADMIN, ROLE_MANAGER, ROLE_OPERATOR, ROLE_VIEWER] as const;
+
+/** Display labels for roles (used in frontend) */
+export const ROLE_LABELS: Record<string, string> = {
+    [ROLE_ADMIN]: "Admin",
+    [ROLE_MANAGER]: "Manager",
+    [ROLE_OPERATOR]: "Operator",
+    [ROLE_VIEWER]: "Viewer",
+};
+
+// RBAC Permission Constants
+export const PERMISSION_STACK_VIEW = "stack.view";
+export const PERMISSION_STACK_CREATE = "stack.create";
+export const PERMISSION_STACK_EDIT = "stack.edit";
+export const PERMISSION_STACK_DELETE = "stack.delete";
+export const PERMISSION_STACK_START = "stack.start";
+export const PERMISSION_STACK_STOP = "stack.stop";
+export const PERMISSION_STACK_RESTART = "stack.restart";
+export const PERMISSION_STACK_UPDATE = "stack.update";
+export const PERMISSION_STACK_LOGS = "stack.logs";
+export const PERMISSION_TERMINAL_EXEC = "terminal.exec";
+export const PERMISSION_TERMINAL_CONSOLE = "terminal.console";
+export const PERMISSION_AGENT_MANAGE = "agent.manage";
+export const PERMISSION_SETTINGS_VIEW = "settings.view";
+export const PERMISSION_SETTINGS_EDIT = "settings.edit";
+export const PERMISSION_USER_MANAGE = "user.manage";
+
+/** Mapping of each role to its granted permissions (for frontend use) */
+export const FRONTEND_ROLE_PERMISSIONS: Record<string, string[]> = {
+    [ROLE_ADMIN]: [
+        PERMISSION_STACK_VIEW, PERMISSION_STACK_CREATE, PERMISSION_STACK_EDIT,
+        PERMISSION_STACK_DELETE, PERMISSION_STACK_START, PERMISSION_STACK_STOP,
+        PERMISSION_STACK_RESTART, PERMISSION_STACK_UPDATE, PERMISSION_STACK_LOGS,
+        PERMISSION_TERMINAL_EXEC, PERMISSION_TERMINAL_CONSOLE,
+        PERMISSION_AGENT_MANAGE, PERMISSION_SETTINGS_VIEW, PERMISSION_SETTINGS_EDIT,
+        PERMISSION_USER_MANAGE,
+    ],
+    [ROLE_MANAGER]: [
+        PERMISSION_STACK_VIEW, PERMISSION_STACK_CREATE, PERMISSION_STACK_EDIT,
+        PERMISSION_STACK_DELETE, PERMISSION_STACK_START, PERMISSION_STACK_STOP,
+        PERMISSION_STACK_RESTART, PERMISSION_STACK_UPDATE, PERMISSION_STACK_LOGS,
+        PERMISSION_TERMINAL_EXEC,
+    ],
+    [ROLE_OPERATOR]: [
+        PERMISSION_STACK_VIEW, PERMISSION_STACK_START, PERMISSION_STACK_STOP,
+        PERMISSION_STACK_RESTART, PERMISSION_STACK_UPDATE, PERMISSION_STACK_LOGS,
+    ],
+    [ROLE_VIEWER]: [
+        PERMISSION_STACK_VIEW, PERMISSION_STACK_LOGS,
+    ],
+};
+
 export const acceptedComposeFileNames = [
     "compose.yaml",
     "docker-compose.yaml",
