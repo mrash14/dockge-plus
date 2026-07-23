@@ -38,7 +38,7 @@ import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { UserManagementSocketHandler } from "./socket-handlers/user-management-socket-handler";
 import { Terminal } from "./terminal";
-import { getAccessibleStackNames, Role } from "./rbac";
+import { getAccessibleStackNames, UserType } from "./rbac";
 
 export class DockgeServer {
     app : Express;
@@ -332,14 +332,14 @@ export class DockgeServer {
 
     async afterLogin(socket : DockgeSocket, user : User) {
         socket.userID = user.id;
-        socket.userRole = user.role || Role.ADMIN;
+        socket.userType = user.user_type || UserType.ADMIN;
         socket.join(user.id.toString());
 
         this.sendInfo(socket);
 
-        // Send user role to frontend
-        socket.emit("userRole", {
-            role: socket.userRole,
+        // Send user type to frontend
+        socket.emit("userType", {
+            userType: socket.userType,
         });
 
         try {
@@ -611,9 +611,9 @@ export class DockgeServer {
                 }
 
                 // Get accessible stack names for this user
-                const userRole = dockgeSocket.userRole || Role.ADMIN;
+                const userType = dockgeSocket.userType || UserType.ADMIN;
                 const accessibleNames = await getAccessibleStackNames(
-                    dockgeSocket.userID, userRole, dockgeSocket.endpoint
+                    dockgeSocket.userID, userType, dockgeSocket.endpoint
                 );
 
                 let map : Map<string, object> = new Map();

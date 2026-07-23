@@ -44,7 +44,7 @@ export class MainSocketHandler extends SocketHandler {
                 const user = R.dispense("user");
                 user.username = username;
                 user.password = generatePasswordHash(password);
-                user.role = "admin";  // First user is always admin
+                user.user_type = "admin";  // First user is always admin
                 await R.store(user);
 
                 server.needSetup = false;

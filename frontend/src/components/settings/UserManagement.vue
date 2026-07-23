@@ -13,7 +13,7 @@
                 <thead>
                     <tr>
                         <th>{{ $t("Username") }}</th>
-                        <th>{{ $t("Role") }}</th>
+                        <th>{{ $t("User Type") }}</th>
                         <th>{{ $t("Status") }}</th>
                         <th>{{ $t("Actions") }}</th>
                     </tr>
@@ -22,8 +22,8 @@
                     <tr v-for="user in userList" :key="user.id">
                         <td>{{ user.username }}</td>
                         <td>
-                            <span class="badge" :class="roleBadgeClass(user.role)">
-                                {{ roleLabel(user.role) }}
+                            <span class="badge" :class="userTypeBadgeClass(user.user_type)">
+                                {{ userTypeLabel(user.user_type) }}
                             </span>
                         </td>
                         <td>
@@ -34,7 +34,7 @@
                             <button class="btn btn-sm btn-outline-primary me-1" @click="editUser(user)">
                                 <font-awesome-icon icon="pen" />
                             </button>
-                            <button class="btn btn-sm btn-outline-info me-1" @click="manageAccess(user)">
+                            <button v-if="user.user_type !== 'admin'" class="btn btn-sm btn-outline-info me-1" @click="manageAccess(user)">
                                 <font-awesome-icon icon="key" />
                             </button>
                             <button
@@ -55,6 +55,7 @@
             </table>
         </div>
 
+        <!-- Add/Edit User Dialog -->
         <BModal
             v-model="showAddDialog"
             :title="editingUser ? $t('Edit User') : $t('Add User')"
@@ -88,10 +89,10 @@
                 >
             </div>
             <div class="mb-3">
-                <label for="userFormRole" class="form-label">{{ $t("Role") }}</label>
-                <select id="userFormRole" v-model="userForm.role" class="form-select">
-                    <option v-for="role in allRoles" :key="role" :value="role">
-                        {{ roleLabel(role) }}
+                <label for="userFormUserType" class="form-label">{{ $t("User Type") }}</label>
+                <select id="userFormUserType" v-model="userForm.userType" class="form-select">
+                    <option v-for="ut in allUserTypes" :key="ut" :value="ut">
+                        {{ userTypeLabel(ut) }}
                     </option>
                 </select>
             </div>
@@ -130,7 +131,7 @@
             size="lg"
             @ok="saveStackAccess"
         >
-            <div v-if="accessUser && accessUser.role === 'admin'" class="alert alert-info">
+            <div v-if="accessUser && accessUser.user_type === 'admin'" class="alert alert-info">
                 {{ $t("adminFullAccess") }}
             </div>
             <div v-else>
@@ -139,28 +140,47 @@
                 </div>
 
                 <!-- Existing access list -->
-                <div v-for="(access, index) in stackAccessList" :key="index" class="input-group mb-2">
-                    <select v-model="access.endpoint" class="form-select">
-                        <option value="">{{ $t('Endpoint (empty for local)') }}</option>
-                        <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint">
-                            {{ agent.name }} ({{ agentEndpoint }})
-                        </option>
-                    </select>
+                <div v-for="(access, index) in stackAccessList" :key="index" class="mb-2">
+                    <div class="input-group">
+                        <!-- Server (Endpoint) -->
+                        <select v-model="access.endpoint" class="form-select" @change="onEndpointChange(index)">
+                            <option value="*">{{ $t("All Servers") }}</option>
+                            <option value="">{{ $t("localServer") }}</option>
+                            <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint">
+                                {{ agent.name }} ({{ agentEndpoint }})
+                            </option>
+                        </select>
 
-                    <input
-                        v-model="access.stackName"
-                        type="text"
-                        class="form-control"
-                        :placeholder="$t('stackName')"
-                        :list="'stack-list-' + index"
-                    >
-                    <datalist :id="'stack-list-' + index">
-                        <option v-for="stackName in availableStacksForEndpoint(access.endpoint)" :key="stackName" :value="stackName"></option>
-                    </datalist>
+                        <!-- Stack -->
+                        <select v-if="access.endpoint === '*'" class="form-select" disabled>
+                            <option value="*">{{ $t("All Stacks") }}</option>
+                        </select>
+                        <template v-else>
+                            <input
+                                v-model="access.stackName"
+                                type="text"
+                                class="form-control"
+                                :placeholder="$t('stackName')"
+                                :list="'stack-list-' + index"
+                            >
+                            <datalist :id="'stack-list-' + index">
+                                <option value="*">{{ $t("All Stacks") }}</option>
+                                <option v-for="stackName in availableStacksForEndpoint(access.endpoint)" :key="stackName" :value="stackName"></option>
+                            </datalist>
+                        </template>
 
-                    <button class="btn btn-outline-danger" @click="removeAccessEntry(index)">
-                        <font-awesome-icon icon="trash" />
-                    </button>
+                        <!-- Access Level -->
+                        <select v-model="access.accessLevel" class="form-select">
+                            <option v-for="level in allAccessLevels" :key="level" :value="level">
+                                {{ accessLevelLabel(level) }}
+                            </option>
+                        </select>
+
+                        <!-- Delete button -->
+                        <button class="btn btn-outline-danger" @click="removeAccessEntry(index)">
+                            <font-awesome-icon icon="trash" />
+                        </button>
+                    </div>
                 </div>
 
                 <button class="btn btn-sm btn-normal" @click="addAccessEntry">
@@ -174,7 +194,7 @@
 
 <script>
 import { BModal } from "bootstrap-vue-next";
-import { ALL_ROLES, ROLE_LABELS } from "../../../../common/util-common";
+import { ALL_USER_TYPES, USER_TYPE_LABELS, ALL_ACCESS_LEVELS, ACCESS_LEVEL_LABELS } from "../../../../common/util-common";
 
 export default {
     components: {
@@ -193,17 +213,19 @@ export default {
             userForm: {
                 username: "",
                 password: "",
-                role: "viewer",
+                userType: "normal",
                 active: true,
             },
         };
     },
     computed: {
-        allRoles() {
-            return ALL_ROLES;
+        allUserTypes() {
+            return ALL_USER_TYPES;
+        },
+        allAccessLevels() {
+            return ALL_ACCESS_LEVELS;
         },
         currentUserId() {
-            // Get current user ID from JWT payload
             const payload = this.$root.getJWTPayload();
             return payload?.id;
         },
@@ -212,20 +234,20 @@ export default {
         this.loadUsers();
     },
     methods: {
-        roleLabel(role) {
-            return ROLE_LABELS[role] || role;
+        userTypeLabel(userType) {
+            return this.$t(USER_TYPE_LABELS[userType] || userType);
         },
 
-        roleBadgeClass(role) {
-            switch (role) {
+        accessLevelLabel(level) {
+            return this.$t(ACCESS_LEVEL_LABELS[level] || level);
+        },
+
+        userTypeBadgeClass(userType) {
+            switch (userType) {
             case "admin":
                 return "bg-danger";
-            case "manager":
+            case "normal":
                 return "bg-primary";
-            case "operator":
-                return "bg-warning text-dark";
-            case "viewer":
-                return "bg-secondary";
             default:
                 return "bg-secondary";
             }
@@ -246,7 +268,7 @@ export default {
             this.userForm = {
                 username: user.username,
                 password: "",
-                role: user.role,
+                userType: user.user_type,
                 active: !!user.active,
             };
             this.showAddDialog = true;
@@ -255,10 +277,9 @@ export default {
         saveUser(e) {
             e.preventDefault();
             if (this.editingUser) {
-                // Edit existing user
                 const data = {
                     id: this.editingUser.id,
-                    role: this.userForm.role,
+                    userType: this.userForm.userType,
                     active: this.userForm.active,
                 };
 
@@ -274,11 +295,10 @@ export default {
                     }
                 });
             } else {
-                // Add new user
                 this.$root.getSocket().emit("addUser", {
                     username: this.userForm.username,
                     password: this.userForm.password,
-                    role: this.userForm.role,
+                    userType: this.userForm.userType,
                 }, (res) => {
                     this.$root.toastRes(res);
                     if (res.ok) {
@@ -311,12 +331,12 @@ export default {
             this.accessUser = user;
             this.stackAccessList = [];
 
-            // Load existing access
             this.$root.getSocket().emit("getStackAccess", user.id, (res) => {
                 if (res.ok) {
                     this.stackAccessList = res.accessList.map(a => ({
                         stackName: a.stack_name,
                         endpoint: a.endpoint,
+                        accessLevel: a.access_level || "viewer",
                     }));
                 }
                 this.showAccessDialog = true;
@@ -325,13 +345,21 @@ export default {
 
         addAccessEntry() {
             this.stackAccessList.push({
-                stackName: "",
-                endpoint: "",
+                stackName: "*",
+                endpoint: "*",
+                accessLevel: "viewer",
             });
         },
 
         removeAccessEntry(index) {
             this.stackAccessList.splice(index, 1);
+        },
+
+        onEndpointChange(index) {
+            // If endpoint is set to "All", force stack to "All" too
+            if (this.stackAccessList[index].endpoint === "*") {
+                this.stackAccessList[index].stackName = "*";
+            }
         },
 
         saveStackAccess(e) {
@@ -354,7 +382,7 @@ export default {
             this.userForm = {
                 username: "",
                 password: "",
-                role: "viewer",
+                userType: "normal",
                 active: true,
             };
         },

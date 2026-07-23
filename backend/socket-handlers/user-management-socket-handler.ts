@@ -4,8 +4,9 @@ import { log } from "../log";
 import { callbackError, callbackResult, checkPermission, DockgeSocket, ValidationError } from "../util-server";
 import { R } from "redbean-node";
 import { generatePasswordHash } from "../password-hash";
-import { Permission, VALID_ROLES, Role } from "../rbac";
+import { Permission, VALID_USER_TYPES, VALID_ACCESS_LEVELS, UserType } from "../rbac";
 import { passwordStrength } from "check-password-strength";
+import { ACCESS_WILDCARD } from "../../common/util-common";
 
 /**
  * Socket handler for user management operations.
@@ -16,7 +17,7 @@ export class UserManagementSocketHandler extends SocketHandler {
 
         /**
          * Get list of all users (admin only).
-         * Returns user id, username, role, and active status.
+         * Returns user id, username, user_type, and active status.
          * Passwords are never sent to the client.
          */
         socket.on("getUserList", async (callback) => {
@@ -24,7 +25,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                 await checkPermission(socket, Permission.USER_MANAGE);
 
                 const users = await R.getAll(
-                    "SELECT id, username, role, active FROM user ORDER BY id ASC"
+                    "SELECT id, username, user_type, active FROM user ORDER BY id ASC"
                 );
 
                 callbackResult({
@@ -40,7 +41,7 @@ export class UserManagementSocketHandler extends SocketHandler {
          * Add a new user (admin only).
          * @param data.username - The username for the new user
          * @param data.password - The password for the new user
-         * @param data.role - The role for the new user
+         * @param data.userType - The user type ("admin" or "normal")
          */
         socket.on("addUser", async (data : unknown, callback : unknown) => {
             try {
@@ -50,10 +51,10 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new ValidationError("Data must be an object");
                 }
 
-                const { username, password, role } = data as {
+                const { username, password, userType } = data as {
                     username: string;
                     password: string;
-                    role: string;
+                    userType: string;
                 };
 
                 // Validate username
@@ -70,9 +71,9 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new ValidationError("Password is too weak. It should contain alphabetic and numeric characters. It must be at least 6 characters in length.");
                 }
 
-                // Validate role
-                if (!VALID_ROLES.includes(role)) {
-                    throw new ValidationError("Invalid role: " + role);
+                // Validate user type
+                if (!VALID_USER_TYPES.includes(userType)) {
+                    throw new ValidationError("Invalid user type: " + userType);
                 }
 
                 // Check if username already exists
@@ -84,11 +85,11 @@ export class UserManagementSocketHandler extends SocketHandler {
                 const user = R.dispense("user");
                 user.username = username.trim();
                 user.password = generatePasswordHash(password);
-                user.role = role;
+                user.user_type = userType;
                 user.active = true;
                 await R.store(user);
 
-                log.info("user-management", `User "${username}" created with role "${role}" by user ID ${socket.userID}`);
+                log.info("user-management", `User "${username}" created with type "${userType}" by user ID ${socket.userID}`);
 
                 callbackResult({
                     ok: true,
@@ -102,10 +103,10 @@ export class UserManagementSocketHandler extends SocketHandler {
 
         /**
          * Edit an existing user (admin only).
-         * Can change role and active status.
+         * Can change user type and active status.
          * Password change is optional.
          * @param data.id - The user ID to edit
-         * @param data.role - New role (optional)
+         * @param data.userType - New user type (optional)
          * @param data.active - Active status (optional)
          * @param data.password - New password (optional)
          */
@@ -117,9 +118,9 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new ValidationError("Data must be an object");
                 }
 
-                const { id, role, active, password } = data as {
+                const { id, userType, active, password } = data as {
                     id: number;
-                    role?: string;
+                    userType?: string;
                     active?: boolean;
                     password?: string;
                 };
@@ -133,9 +134,9 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new Error("User not found");
                 }
 
-                // Prevent admin from changing their own role (safety)
-                if (id === socket.userID && role && role !== user.role) {
-                    throw new Error("Cannot change your own role");
+                // Prevent admin from changing their own user type (safety)
+                if (id === socket.userID && userType && userType !== user.user_type) {
+                    throw new Error("Cannot change your own user type");
                 }
 
                 // Prevent deactivating yourself
@@ -143,13 +144,13 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new Error("Cannot deactivate your own account");
                 }
 
-                const originalRole = user.role;
+                const originalUserType = user.user_type;
 
-                if (role !== undefined) {
-                    if (!VALID_ROLES.includes(role)) {
-                        throw new ValidationError("Invalid role: " + role);
+                if (userType !== undefined) {
+                    if (!VALID_USER_TYPES.includes(userType)) {
+                        throw new ValidationError("Invalid user type: " + userType);
                     }
-                    user.role = role;
+                    user.user_type = userType;
                 }
 
                 if (active !== undefined) {
@@ -167,8 +168,8 @@ export class UserManagementSocketHandler extends SocketHandler {
 
                 log.info("user-management", `User ID ${id} edited by user ID ${socket.userID}`);
 
-                // If the user's role changed, disconnect their sessions to force re-auth
-                if (role !== undefined && role !== originalRole) {
+                // If the user's type changed, disconnect their sessions to force re-auth
+                if (userType !== undefined && userType !== originalUserType) {
                     server.disconnectAllSocketClients(id);
                 }
 
@@ -237,7 +238,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                 }
 
                 const accessList = await R.getAll(
-                    "SELECT id, stack_name, endpoint FROM user_stack_access WHERE user_id = ? ORDER BY endpoint, stack_name",
+                    "SELECT id, stack_name, endpoint, access_level FROM user_stack_access WHERE user_id = ? ORDER BY endpoint, stack_name",
                     [userId]
                 );
 
@@ -254,7 +255,7 @@ export class UserManagementSocketHandler extends SocketHandler {
          * Set stack access for a user (admin only).
          * Replaces all existing access with the new list.
          * @param data.userId - The user ID
-         * @param data.stackAccess - Array of {stackName, endpoint} objects
+         * @param data.stackAccess - Array of {stackName, endpoint, accessLevel} objects
          */
         socket.on("setStackAccess", async (data : unknown, callback : unknown) => {
             try {
@@ -266,7 +267,7 @@ export class UserManagementSocketHandler extends SocketHandler {
 
                 const { userId, stackAccess } = data as {
                     userId: number;
-                    stackAccess: Array<{ stackName: string; endpoint: string }>;
+                    stackAccess: Array<{ stackName: string; endpoint: string; accessLevel: string }>;
                 };
 
                 if (typeof userId !== "number") {
@@ -284,8 +285,21 @@ export class UserManagementSocketHandler extends SocketHandler {
                 }
 
                 // Admin doesn't need stack access records
-                if (user.role === Role.ADMIN) {
+                if (user.user_type === UserType.ADMIN) {
                     throw new Error("Admin users have access to all stacks. No need to set stack access.");
+                }
+
+                // Validate entries
+                for (const access of stackAccess) {
+                    // Validate access level
+                    if (!VALID_ACCESS_LEVELS.includes(access.accessLevel)) {
+                        throw new ValidationError("Invalid access level: " + access.accessLevel);
+                    }
+
+                    // If endpoint is wildcard, stack must also be wildcard
+                    if (access.endpoint === ACCESS_WILDCARD && access.stackName !== ACCESS_WILDCARD) {
+                        throw new ValidationError("When server is set to 'All', stack must also be 'All'.");
+                    }
                 }
 
                 // Delete existing access
@@ -300,6 +314,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                     bean.user_id = userId;
                     bean.stack_name = access.stackName.trim();
                     bean.endpoint = access.endpoint || "";
+                    bean.access_level = access.accessLevel || "viewer";
                     await R.store(bean);
                 }
 

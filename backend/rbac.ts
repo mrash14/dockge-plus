@@ -1,23 +1,39 @@
 /**
- * Role-Based Access Control (RBAC) module for Dockge.
+ * Role-Based Access Control (RBAC) module for Dockge — v2.
  *
- * Defines roles, permissions, and provides functions to check
- * whether a given role has a specific permission and whether
- * a user has access to a specific stack.
+ * Users are either "admin" (full access) or "normal" (access defined per-entry).
+ * Each entry in user_stack_access grants an access level (viewer/operator/manager)
+ * for a specific (endpoint, stack) pair, with wildcard "*" support.
  *
  * @module rbac
  */
 import { R } from "redbean-node";
 
 /**
- * User roles ordered by privilege level (highest to lowest).
+ * User types — simplified from v1 roles.
  */
-export enum Role {
+export enum UserType {
     ADMIN = "admin",
-    MANAGER = "manager",
-    OPERATOR = "operator",
-    VIEWER = "viewer",
+    NORMAL = "normal",
 }
+
+/**
+ * Access levels ordered by privilege (lowest to highest).
+ */
+export enum AccessLevel {
+    VIEWER = "viewer",
+    OPERATOR = "operator",
+    MANAGER = "manager",
+}
+
+/**
+ * Numeric privilege rank for each access level (higher = more privilege).
+ */
+const ACCESS_LEVEL_RANK: Record<string, number> = {
+    [AccessLevel.VIEWER]: 1,
+    [AccessLevel.OPERATOR]: 2,
+    [AccessLevel.MANAGER]: 3,
+};
 
 /**
  * All available permissions in the system.
@@ -51,12 +67,15 @@ export enum Permission {
 }
 
 /**
- * Mapping of each role to its granted permissions.
- * Admin gets all permissions. Other roles get a subset.
+ * Permissions granted to admin users (all permissions).
  */
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-    [Role.ADMIN]: Object.values(Permission),
-    [Role.MANAGER]: [
+const ADMIN_PERMISSIONS: Permission[] = Object.values(Permission);
+
+/**
+ * Mapping of each access level to its granted permissions.
+ */
+export const ACCESS_LEVEL_PERMISSIONS: Record<AccessLevel, Permission[]> = {
+    [AccessLevel.MANAGER]: [
         Permission.STACK_VIEW,
         Permission.STACK_CREATE,
         Permission.STACK_EDIT,
@@ -68,7 +87,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         Permission.STACK_LOGS,
         Permission.TERMINAL_EXEC,
     ],
-    [Role.OPERATOR]: [
+    [AccessLevel.OPERATOR]: [
         Permission.STACK_VIEW,
         Permission.STACK_START,
         Permission.STACK_STOP,
@@ -76,26 +95,38 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         Permission.STACK_UPDATE,
         Permission.STACK_LOGS,
     ],
-    [Role.VIEWER]: [
+    [AccessLevel.VIEWER]: [
         Permission.STACK_VIEW,
         Permission.STACK_LOGS,
     ],
 };
 
 /**
- * List of all valid role values for validation.
+ * List of all valid user type values for validation.
  */
-export const VALID_ROLES: string[] = Object.values(Role);
+export const VALID_USER_TYPES: string[] = Object.values(UserType);
 
 /**
- * Check if a role has a specific permission.
- * @param {string} role - The user's role
- * @param {Permission} permission - The permission to check
- * @returns {boolean} Whether the role has the permission
+ * List of all valid access level values for validation.
  */
-export function hasPermission(role: string, permission: Permission): boolean {
-    const roleEnum = role as Role;
-    const permissions = ROLE_PERMISSIONS[roleEnum];
+export const VALID_ACCESS_LEVELS: string[] = Object.values(AccessLevel);
+
+/**
+ * Check if an admin or a specific access level grants a permission.
+ * @param {string} userType - "admin" or "normal"
+ * @param {string | null} accessLevel - The access level (only used for normal users)
+ * @param {Permission} permission - The permission to check
+ * @returns {boolean}
+ */
+export function hasPermission(userType: string, accessLevel: string | null, permission: Permission): boolean {
+    if (userType === UserType.ADMIN) {
+        return ADMIN_PERMISSIONS.includes(permission);
+    }
+    if (!accessLevel) {
+        return false;
+    }
+    const level = accessLevel as AccessLevel;
+    const permissions = ACCESS_LEVEL_PERMISSIONS[level];
     if (!permissions) {
         return false;
     }
@@ -103,49 +134,128 @@ export function hasPermission(role: string, permission: Permission): boolean {
 }
 
 /**
+ * Get the effective access level for a user on a specific stack.
+ * Considers wildcard entries and returns the highest matching level.
+ *
+ * Priority order (all are checked, highest wins):
+ *   1. endpoint="*", stack_name="*"  → applies to everything
+ *   2. endpoint=E,   stack_name="*"  → applies to all stacks on endpoint E
+ *   3. endpoint=E,   stack_name=S    → applies to specific stack S on endpoint E
+ *
+ * @param {number} userId
+ * @param {string} stackName
+ * @param {string} endpoint - Empty string for local
+ * @returns {Promise<string | null>} The highest access level, or null if no access
+ */
+export async function getEffectiveAccessLevel(userId: number, stackName: string, endpoint: string = ""): Promise<string | null> {
+    const rows = await R.getAll(
+        `SELECT access_level FROM user_stack_access
+         WHERE user_id = ?
+           AND (endpoint = ? OR endpoint = '*')
+           AND (stack_name = ? OR stack_name = '*')`,
+        [userId, endpoint, stackName]
+    );
+
+    if (rows.length === 0) {
+        return null;
+    }
+
+    // Find the highest access level among all matching entries
+    let highestRank = 0;
+    let highestLevel: string | null = null;
+    for (const row of rows) {
+        const rank = ACCESS_LEVEL_RANK[row.access_level] || 0;
+        if (rank > highestRank) {
+            highestRank = rank;
+            highestLevel = row.access_level;
+        }
+    }
+
+    return highestLevel;
+}
+
+/**
  * Check if a user has access to a specific stack.
  * Admin users have access to all stacks.
- * Other users must have an explicit entry in user_stack_access.
+ * Normal users must have at least one matching entry in user_stack_access.
  *
- * @param {number} userId - The user's ID
- * @param {string} role - The user's role
- * @param {string} stackName - The name of the stack
- * @param {string} endpoint - The endpoint (empty string for local)
- * @returns {Promise<boolean>} Whether the user has access to the stack
+ * @param {number} userId
+ * @param {string} userType - "admin" or "normal"
+ * @param {string} stackName
+ * @param {string} endpoint - Empty string for local
+ * @returns {Promise<boolean>}
  */
-export async function hasStackAccess(userId: number, role: string, stackName: string, endpoint: string = ""): Promise<boolean> {
-    // Admin has access to all stacks
-    if (role === Role.ADMIN) {
+export async function hasStackAccess(userId: number, userType: string, stackName: string, endpoint: string = ""): Promise<boolean> {
+    if (userType === UserType.ADMIN) {
         return true;
     }
 
-    const access = await R.findOne("user_stack_access",
-        " user_id = ? AND stack_name = ? AND endpoint = ? ",
-        [userId, stackName, endpoint]
-    );
+    const level = await getEffectiveAccessLevel(userId, stackName, endpoint);
+    return level !== null;
+}
 
-    return !!access;
+/**
+ * Check if a user has a specific permission on a specific stack.
+ * This combines stack access check with permission check.
+ *
+ * @param {number} userId
+ * @param {string} userType
+ * @param {Permission} permission
+ * @param {string} stackName
+ * @param {string} endpoint
+ * @returns {Promise<boolean>}
+ */
+export async function hasStackPermission(userId: number, userType: string, permission: Permission, stackName: string, endpoint: string = ""): Promise<boolean> {
+    if (userType === UserType.ADMIN) {
+        return true;
+    }
+
+    const level = await getEffectiveAccessLevel(userId, stackName, endpoint);
+    if (!level) {
+        return false;
+    }
+
+    return hasPermission(userType, level, permission);
 }
 
 /**
  * Get the list of stack names a user has access to for a given endpoint.
  * Admin users return null (meaning all stacks).
+ * If the user has a wildcard entry for the endpoint, also returns null.
  *
- * @param {number} userId - The user's ID
- * @param {string} role - The user's role
- * @param {string} endpoint - The endpoint (empty string for local)
- * @returns {Promise<string[] | null>} List of stack names, or null for admin (all access)
+ * @param {number} userId
+ * @param {string} userType
+ * @param {string} endpoint - Empty string for local
+ * @returns {Promise<string[] | null>} List of stack names, or null for all access
  */
-export async function getAccessibleStackNames(userId: number, role: string, endpoint: string = ""): Promise<string[] | null> {
-    // Admin has access to all stacks
-    if (role === Role.ADMIN) {
+export async function getAccessibleStackNames(userId: number, userType: string, endpoint: string = ""): Promise<string[] | null> {
+    if (userType === UserType.ADMIN) {
         return null;
     }
 
+    // Check for wildcard entries first
+    const wildcardAll = await R.findOne("user_stack_access",
+        " user_id = ? AND endpoint = '*' AND stack_name = '*' ",
+        [userId]
+    );
+    if (wildcardAll) {
+        return null; // Access to all stacks on all endpoints
+    }
+
+    const wildcardEndpoint = await R.findOne("user_stack_access",
+        " user_id = ? AND endpoint = ? AND stack_name = '*' ",
+        [userId, endpoint]
+    );
+    if (wildcardEndpoint) {
+        return null; // Access to all stacks on this endpoint
+    }
+
     const rows = await R.getAll(
-        "SELECT stack_name FROM user_stack_access WHERE user_id = ? AND endpoint = ?",
+        "SELECT stack_name FROM user_stack_access WHERE user_id = ? AND (endpoint = ? OR endpoint = '*')",
         [userId, endpoint]
     );
 
-    return rows.map((row: { stack_name: string }) => row.stack_name);
+    return rows
+        .map((row: { stack_name: string }) => row.stack_name)
+        .filter((name: string) => name !== "*");
 }

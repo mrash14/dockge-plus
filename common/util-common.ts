@@ -107,22 +107,36 @@ export const COMBINED_TERMINAL_ROWS = 20;
 
 export const ERROR_TYPE_VALIDATION = 1;
 
-// RBAC Role Constants
-export const ROLE_ADMIN = "admin";
-export const ROLE_MANAGER = "manager";
-export const ROLE_OPERATOR = "operator";
-export const ROLE_VIEWER = "viewer";
+// RBAC User Type Constants
+export const USER_TYPE_ADMIN = "admin";
+export const USER_TYPE_NORMAL = "normal";
 
-/** All available roles ordered by privilege level (highest to lowest) */
-export const ALL_ROLES = [ROLE_ADMIN, ROLE_MANAGER, ROLE_OPERATOR, ROLE_VIEWER] as const;
+/** All available user types */
+export const ALL_USER_TYPES = [USER_TYPE_ADMIN, USER_TYPE_NORMAL] as const;
 
-/** Display labels for roles (used in frontend) */
-export const ROLE_LABELS: Record<string, string> = {
-    [ROLE_ADMIN]: "Admin",
-    [ROLE_MANAGER]: "Manager",
-    [ROLE_OPERATOR]: "Operator",
-    [ROLE_VIEWER]: "Viewer",
+/** Display labels for user types (used in frontend) */
+export const USER_TYPE_LABELS: Record<string, string> = {
+    [USER_TYPE_ADMIN]: "Admin",
+    [USER_TYPE_NORMAL]: "Normal",
 };
+
+// RBAC Access Level Constants (per stack entry)
+export const ACCESS_LEVEL_VIEWER = "viewer";
+export const ACCESS_LEVEL_OPERATOR = "operator";
+export const ACCESS_LEVEL_MANAGER = "manager";
+
+/** All access levels ordered by privilege (lowest to highest) */
+export const ALL_ACCESS_LEVELS = [ACCESS_LEVEL_VIEWER, ACCESS_LEVEL_OPERATOR, ACCESS_LEVEL_MANAGER] as const;
+
+/** Display labels for access levels */
+export const ACCESS_LEVEL_LABELS: Record<string, string> = {
+    [ACCESS_LEVEL_VIEWER]: "Viewer",
+    [ACCESS_LEVEL_OPERATOR]: "Operator",
+    [ACCESS_LEVEL_MANAGER]: "Manager",
+};
+
+/** Wildcard value for "all servers" or "all stacks" */
+export const ACCESS_WILDCARD = "*";
 
 // RBAC Permission Constants
 export const PERMISSION_STACK_VIEW = "stack.view";
@@ -141,27 +155,19 @@ export const PERMISSION_SETTINGS_VIEW = "settings.view";
 export const PERMISSION_SETTINGS_EDIT = "settings.edit";
 export const PERMISSION_USER_MANAGE = "user.manage";
 
-/** Mapping of each role to its granted permissions (for frontend use) */
-export const FRONTEND_ROLE_PERMISSIONS: Record<string, string[]> = {
-    [ROLE_ADMIN]: [
-        PERMISSION_STACK_VIEW, PERMISSION_STACK_CREATE, PERMISSION_STACK_EDIT,
-        PERMISSION_STACK_DELETE, PERMISSION_STACK_START, PERMISSION_STACK_STOP,
-        PERMISSION_STACK_RESTART, PERMISSION_STACK_UPDATE, PERMISSION_STACK_LOGS,
-        PERMISSION_TERMINAL_EXEC, PERMISSION_TERMINAL_CONSOLE,
-        PERMISSION_AGENT_MANAGE, PERMISSION_SETTINGS_VIEW, PERMISSION_SETTINGS_EDIT,
-        PERMISSION_USER_MANAGE,
-    ],
-    [ROLE_MANAGER]: [
+/** Mapping of each access level to its granted permissions (for frontend use) */
+export const FRONTEND_ACCESS_LEVEL_PERMISSIONS: Record<string, string[]> = {
+    [ACCESS_LEVEL_MANAGER]: [
         PERMISSION_STACK_VIEW, PERMISSION_STACK_CREATE, PERMISSION_STACK_EDIT,
         PERMISSION_STACK_DELETE, PERMISSION_STACK_START, PERMISSION_STACK_STOP,
         PERMISSION_STACK_RESTART, PERMISSION_STACK_UPDATE, PERMISSION_STACK_LOGS,
         PERMISSION_TERMINAL_EXEC,
     ],
-    [ROLE_OPERATOR]: [
+    [ACCESS_LEVEL_OPERATOR]: [
         PERMISSION_STACK_VIEW, PERMISSION_STACK_START, PERMISSION_STACK_STOP,
         PERMISSION_STACK_RESTART, PERMISSION_STACK_UPDATE, PERMISSION_STACK_LOGS,
     ],
-    [ROLE_VIEWER]: [
+    [ACCESS_LEVEL_VIEWER]: [
         PERMISSION_STACK_VIEW, PERMISSION_STACK_LOGS,
     ],
 };

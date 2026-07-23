@@ -7,17 +7,17 @@ import { R } from "redbean-node";
 import { verifyPassword } from "./password-hash";
 import fs from "fs";
 import { AgentManager } from "./agent-manager";
-import { Permission, hasPermission, hasStackAccess } from "./rbac";
+import { Permission, hasPermission, hasStackAccess, hasStackPermission, UserType, getEffectiveAccessLevel } from "./rbac";
 
 export interface JWTDecoded {
     username : string;
     h? : string;
-    role? : string;
+    userType? : string;
 }
 
 export interface DockgeSocket extends Socket {
     userID: number;
-    userRole: string;
+    userType: string;
     consoleTerminal? : Terminal;
     instanceManager : AgentManager;
     endpoint : string;
@@ -50,35 +50,43 @@ export function checkLogin(socket : DockgeSocket) {
 
 /**
  * Check if the logged-in user has a specific permission.
- * Throws an error if not logged in or if permission is denied.
- * Uses the role cached on the socket (set during afterLogin).
+ * Admin users have all permissions.
+ * Normal users need the permission to be checked against their access level for a specific stack.
+ * For non-stack-specific permissions (like USER_MANAGE), only admin has them.
  * @param {DockgeSocket} socket - The socket connection
  * @param {Permission} permission - The permission to check
  */
 export async function checkPermission(socket : DockgeSocket, permission : Permission) {
     checkLogin(socket);
 
-    // Fetch the role from DB as the authoritative source (not JWT cache)
     const user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
     if (!user) {
         throw new Error("User not found or inactive.");
     }
 
-    const role = user.role as string;
-    if (!hasPermission(role, permission)) {
+    const userType = user.user_type as string;
+
+    // Admin has all permissions
+    if (userType === UserType.ADMIN) {
+        return;
+    }
+
+    // For normal users, non-stack-specific permissions are denied
+    if (!hasPermission(userType, null, permission)) {
         throw new Error("Permission denied.");
     }
 }
 
 /**
- * Check if the logged-in user has access to a specific stack.
+ * Check if the logged-in user has access to a specific stack with a required permission.
  * Admin users have access to all stacks.
- * Other users must have an explicit entry in user_stack_access.
+ * Normal users must have a matching entry in user_stack_access with sufficient access level.
  * @param {DockgeSocket} socket - The socket connection
  * @param {string} stackName - The name of the stack
  * @param {string} endpoint - The endpoint (empty string for local)
+ * @param {Permission} [requiredPermission] - Optional permission to check against the access level
  */
-export async function checkStackAccess(socket : DockgeSocket, stackName : string, endpoint : string = "") {
+export async function checkStackAccess(socket : DockgeSocket, stackName : string, endpoint : string = "", requiredPermission? : Permission) {
     checkLogin(socket);
 
     const user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
@@ -86,9 +94,18 @@ export async function checkStackAccess(socket : DockgeSocket, stackName : string
         throw new Error("User not found or inactive.");
     }
 
-    const accessible = await hasStackAccess(socket.userID, user.role, stackName, endpoint);
-    if (!accessible) {
-        throw new Error("Access denied to this stack.");
+    const userType = user.user_type as string;
+
+    if (requiredPermission) {
+        const allowed = await hasStackPermission(socket.userID, userType, requiredPermission, stackName, endpoint);
+        if (!allowed) {
+            throw new Error("Access denied to this stack.");
+        }
+    } else {
+        const accessible = await hasStackAccess(socket.userID, userType, stackName, endpoint);
+        if (!accessible) {
+            throw new Error("Access denied to this stack.");
+        }
     }
 }
 

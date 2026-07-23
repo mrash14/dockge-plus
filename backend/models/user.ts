@@ -38,7 +38,7 @@ export class User extends BeanModel {
         return jwt.sign({
             username: user.username,
             h: shake256(user.password, SHAKE256_LENGTH),
-            role: user.role || "admin",
+            userType: user.user_type || "admin",
         }, jwtSecret);
     }
 

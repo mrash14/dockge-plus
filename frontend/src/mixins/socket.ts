@@ -4,7 +4,7 @@ import { defineComponent } from "vue";
 import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
 import { AgentSocket } from "../../../common/agent-socket";
-import { FRONTEND_ROLE_PERMISSIONS, ROLE_ADMIN } from "../../../common/util-common";
+import { USER_TYPE_ADMIN } from "../../../common/util-common";
 
 let socket : Socket;
 
@@ -48,7 +48,7 @@ export default defineComponent({
             },
 
             // RBAC
-            userRole: "",
+            userType: "",
         };
     },
     computed: {
@@ -108,7 +108,7 @@ export default defineComponent({
          * @returns {boolean}
          */
         isAdmin() {
-            return this.userRole === ROLE_ADMIN;
+            return this.userType === USER_TYPE_ADMIN;
         },
 
         /**
@@ -260,14 +260,14 @@ export default defineComponent({
                 this.storage().token = "autoLogin";
                 this.socketIO.token = "autoLogin";
                 this.allowLoginDialog = false;
-                this.userRole = ROLE_ADMIN; // autoLogin is always admin
+                this.userType = USER_TYPE_ADMIN; // autoLogin is always admin
                 this.afterLogin();
             });
 
-            // Listen for user role from server
-            socket.on("userRole", (data) => {
-                if (data && data.role) {
-                    this.userRole = data.role;
+            // Listen for user type from server
+            socket.on("userType", (data) => {
+                if (data && data.userType) {
+                    this.userType = data.userType;
                 }
             });
 
@@ -383,7 +383,7 @@ export default defineComponent({
                     this.loggedIn = true;
                     const payload = this.getJWTPayload();
                     this.username = payload?.username;
-                    this.userRole = payload?.role || ROLE_ADMIN;
+                    this.userType = payload?.userType || USER_TYPE_ADMIN;
 
                     this.afterLogin();
 
@@ -410,7 +410,7 @@ export default defineComponent({
                     this.loggedIn = true;
                     const payload = this.getJWTPayload();
                     this.username = payload?.username;
-                    this.userRole = payload?.role || ROLE_ADMIN;
+                    this.userType = payload?.userType || USER_TYPE_ADMIN;
                     this.afterLogin();
                 }
             });
@@ -426,7 +426,7 @@ export default defineComponent({
             this.socketIO.token = null;
             this.loggedIn = false;
             this.username = null;
-            this.userRole = "";
+            this.userType = "";
             this.clearData();
         },
 
@@ -459,19 +459,24 @@ export default defineComponent({
 
         /**
          * Check if the current user has a specific permission.
-         * Uses the frontend role-permission mapping.
+         * Admin users have all permissions.
+         * Normal users: detailed per-stack permissions are enforced server-side.
+         * On the frontend, we only gate admin-only UI elements.
          * @param {string} permission - The permission to check
          * @returns {boolean}
          */
         hasPermission(permission : string) : boolean {
-            if (!this.userRole) {
+            if (!this.userType) {
                 return false;
             }
-            const permissions = FRONTEND_ROLE_PERMISSIONS[this.userRole];
-            if (!permissions) {
-                return false;
+            // Admin has all permissions
+            if (this.userType === USER_TYPE_ADMIN) {
+                return true;
             }
-            return permissions.includes(permission);
+            // For normal users, non-admin permissions are allowed on the frontend
+            // (server enforces per-stack access level)
+            const adminOnlyPermissions = ["user.manage", "agent.manage", "settings.edit", "terminal.console"];
+            return !adminOnlyPermissions.includes(permission);
         },
 
     }
