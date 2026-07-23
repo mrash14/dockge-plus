@@ -2,7 +2,7 @@ import { Socket } from "socket.io";
 import { Terminal } from "./terminal";
 import { randomBytes } from "crypto";
 import { log } from "./log";
-import { ERROR_TYPE_VALIDATION } from "../common/util-common";
+import { ERROR_TYPE_VALIDATION, ALL_ENDPOINTS } from "../common/util-common";
 import { R } from "redbean-node";
 import { verifyPassword } from "./password-hash";
 import fs from "fs";
@@ -179,6 +179,9 @@ export async function verifyProxiedEventAccess(socket: DockgeSocket, endpoint: s
     }
 
     if (stackNameIndex >= 0 && typeof args[stackNameIndex] === "string") {
+        if (endpoint === ALL_ENDPOINTS) {
+            throw new Error("Cannot send stack-specific events to all endpoints simultaneously for security reasons.");
+        }
         await checkStackAccess(socket, args[stackNameIndex] as string, endpoint);
     }
 }

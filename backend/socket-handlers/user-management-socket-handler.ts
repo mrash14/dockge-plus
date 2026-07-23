@@ -143,6 +143,8 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new Error("Cannot deactivate your own account");
                 }
 
+                const originalRole = user.role;
+
                 if (role !== undefined) {
                     if (!VALID_ROLES.includes(role)) {
                         throw new ValidationError("Invalid role: " + role);
@@ -166,7 +168,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                 log.info("user-management", `User ID ${id} edited by user ID ${socket.userID}`);
 
                 // If the user's role changed, disconnect their sessions to force re-auth
-                if (role !== undefined && role !== user.role) {
+                if (role !== undefined && role !== originalRole) {
                     server.disconnectAllSocketClients(id);
                 }
 

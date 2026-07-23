@@ -25,8 +25,8 @@ export class AgentProxySocketHandler extends SocketHandler {
                 if (endpoint === ALL_ENDPOINTS) {      // Send to all endpoints
                     log.debug("agent", "Sending to all endpoints: " + eventName);
                     // For ALL_ENDPOINTS, we verify with an empty endpoint (which might fail if they don't have global access)
-                    // But actually, ALL_ENDPOINTS is mostly used for getters like `agentStatusList` where RBAC is checked inside.
-                    await verifyProxiedEventAccess(socket, "", eventName, args);
+                    // For ALL_ENDPOINTS, we verify with ALL_ENDPOINTS which will throw if a stack-specific event is broadcasted.
+                    await verifyProxiedEventAccess(socket, ALL_ENDPOINTS, eventName, args);
                     socket.instanceManager.emitToAllEndpoints(eventName, ...args);
 
                 } else if (!endpoint || endpoint === socket.endpoint) {      // Direct connection or matching endpoint
