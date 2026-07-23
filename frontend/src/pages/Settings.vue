@@ -26,7 +26,7 @@
                     </a>
                 </div>
                 <div class="settings-content col-lg-9 col-md-7">
-                    <div v-if="currentPage" class="settings-content-header">
+                    <div v-if="currentPage && subMenus[currentPage]" class="settings-content-header">
                         {{ subMenus[currentPage].title }}
                     </div>
                     <div class="mx-3">
@@ -115,15 +115,24 @@ export default {
     watch: {
         "$root.isMobile"() {
             this.loadGeneralPage();
+        },
+        currentPage() {
+            this.validateCurrentPage();
         }
     },
 
     mounted() {
         this.loadSettings();
         this.loadGeneralPage();
+        this.validateCurrentPage();
     },
 
     methods: {
+        validateCurrentPage() {
+            if (this.currentPage && !this.subMenus[this.currentPage]) {
+                this.$router.push("/settings/appearance");
+            }
+        },
 
         /**
          * Load the general settings page
@@ -138,7 +147,12 @@ export default {
         /** Load settings from server */
         loadSettings() {
             this.$root.getSocket().emit("getSettings", (res) => {
-                this.settings = res.data;
+                if (res.ok) {
+                    this.settings = res.data;
+                } else {
+                    this.settings = {};
+                }
+                
                 if (this.settings.checkUpdate === undefined) {
                     this.settings.checkUpdate = true;
                 }
