@@ -6,7 +6,7 @@ import { isDev, LooseObject, sleep } from "../common/util-common";
 import semver from "semver";
 import { R } from "redbean-node";
 import dayjs, { Dayjs } from "dayjs";
-import { UserType } from "./rbac";
+import { UserType, getAccessibleStackNames } from "./rbac";
 
 /**
  * Dockge Instance Manager
@@ -178,7 +178,24 @@ export class AgentManager {
             this.emitAgentStatus(endpoint, "offline");
         });
 
-        client.on("agent", (...args : unknown[]) => {
+        client.on("agent", async (...args : unknown[]) => {
+            if (args[0] === "stackList") {
+                const res = args[1] as LooseObject;
+                if (res && res.stackList) {
+                    const userType = this.socket.userType || UserType.ADMIN;
+                    const accessibleNames = await getAccessibleStackNames(this.socket.userID, userType, endpoint);
+                    
+                    if (accessibleNames !== null) {
+                        let filteredStackList: Record<string, any> = {};
+                        for (let stackName in res.stackList) {
+                            if (accessibleNames.includes(stackName)) {
+                                filteredStackList[stackName] = res.stackList[stackName];
+                            }
+                        }
+                        res.stackList = filteredStackList;
+                    }
+                }
+            }
             this.socket.emit("agent", ...args);
         });
 

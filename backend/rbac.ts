@@ -119,7 +119,7 @@ export async function getAccessibleStackNames(userId: number, userType: string, 
     }
 
     const wildcardEndpoint = await R.findOne("user_stack_access",
-        " user_id = ? AND endpoint = ? AND stack_name = '*' ",
+        " user_id = ? AND (endpoint = ? OR endpoint = '*') AND stack_name = '*' ",
         [userId, endpoint]
     );
     if (wildcardEndpoint) {
