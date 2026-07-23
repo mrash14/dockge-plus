@@ -10,11 +10,13 @@ import { User } from "../models/user";
 import {
     callbackError,
     checkLogin,
+    checkPermission,
     DockgeSocket,
     doubleCheckPassword,
     JWTDecoded,
     ValidationError
 } from "../util-server";
+import { Permission } from "../rbac";
 import { passwordStrength } from "check-password-strength";
 import jwt from "jsonwebtoken";
 import { Settings } from "../settings";
@@ -42,6 +44,7 @@ export class MainSocketHandler extends SocketHandler {
                 const user = R.dispense("user");
                 user.username = username;
                 user.password = generatePasswordHash(password);
+                user.role = "admin";  // First user is always admin
                 await R.store(user);
 
                 server.needSetup = false;
@@ -241,7 +244,7 @@ export class MainSocketHandler extends SocketHandler {
 
         socket.on("getSettings", async (callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.SETTINGS_VIEW);
                 const data = await Settings.getSettings("general");
 
                 if (fs.existsSync(path.join(server.stacksDir, "global.env"))) {
@@ -267,7 +270,7 @@ export class MainSocketHandler extends SocketHandler {
 
         socket.on("setSettings", async (data, currentPassword, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.SETTINGS_EDIT);
 
                 // If currently is disabled auth, don't need to check
                 // Disabled Auth + Want to Disable Auth => No Check
@@ -320,10 +323,10 @@ export class MainSocketHandler extends SocketHandler {
             }
         });
 
-        // composerize
+        // composerize - requires stack create permission
         socket.on("composerize", async (dockerRunCommand : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_CREATE);
 
                 if (typeof(dockerRunCommand) !== "string") {
                     throw new ValidationError("dockerRunCommand must be a string");

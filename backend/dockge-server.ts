@@ -36,7 +36,9 @@ import { AgentProxySocketHandler } from "./socket-handlers/agent-proxy-socket-ha
 import { AgentSocketHandler } from "./agent-socket-handler";
 import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
+import { UserManagementSocketHandler } from "./socket-handlers/user-management-socket-handler";
 import { Terminal } from "./terminal";
+import { getAccessibleStackNames, Role } from "./rbac";
 
 export class DockgeServer {
     app : Express;
@@ -59,6 +61,7 @@ export class DockgeServer {
     socketHandlerList : SocketHandler[] = [
         new MainSocketHandler(),
         new ManageAgentSocketHandler(),
+        new UserManagementSocketHandler(),
     ];
 
     agentProxySocketHandler = new AgentProxySocketHandler();
@@ -329,9 +332,15 @@ export class DockgeServer {
 
     async afterLogin(socket : DockgeSocket, user : User) {
         socket.userID = user.id;
+        socket.userRole = user.role || Role.ADMIN;
         socket.join(user.id.toString());
 
         this.sendInfo(socket);
+
+        // Send user role to frontend
+        socket.emit("userRole", {
+            role: socket.userRole,
+        });
 
         try {
             this.sendStackList();
@@ -601,10 +610,19 @@ export class DockgeServer {
                     stackList = await Stack.getStackList(this, useCache);
                 }
 
+                // Get accessible stack names for this user
+                const userRole = dockgeSocket.userRole || Role.ADMIN;
+                const accessibleNames = await getAccessibleStackNames(
+                    dockgeSocket.userID, userRole, dockgeSocket.endpoint
+                );
+
                 let map : Map<string, object> = new Map();
 
                 for (let [ stackName, stack ] of stackList) {
-                    map.set(stackName, stack.toSimpleJSON(dockgeSocket.endpoint));
+                    // If accessibleNames is null, user has access to all (admin)
+                    if (accessibleNames === null || accessibleNames.includes(stackName)) {
+                        map.set(stackName, stack.toSimpleJSON(dockgeSocket.endpoint));
+                    }
                 }
 
                 log.debug("server", "Send stack list to user: " + dockgeSocket.id + " (" + dockgeSocket.endpoint + ")");

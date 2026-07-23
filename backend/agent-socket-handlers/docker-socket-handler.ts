@@ -1,8 +1,9 @@
 import { AgentSocketHandler } from "../agent-socket-handler";
 import { DockgeServer } from "../dockge-server";
-import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
+import { callbackError, callbackResult, checkLogin, checkPermission, checkStackAccess, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import { Permission } from "../rbac";
 
 export class DockerSocketHandler extends AgentSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -10,7 +11,14 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
         agentSocket.on("deployStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, callback) => {
             try {
-                checkLogin(socket);
+                if (isAdd) {
+                    await checkPermission(socket, Permission.STACK_CREATE);
+                } else {
+                    await checkPermission(socket, Permission.STACK_EDIT);
+                    if (typeof(name) === "string") {
+                        await checkStackAccess(socket, name, socket.endpoint);
+                    }
+                }
                 const stack = await this.saveStack(server, name, composeYAML, composeENV, isAdd);
                 await stack.deploy(socket);
                 server.sendStackList();
@@ -27,7 +35,14 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
         agentSocket.on("saveStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, callback) => {
             try {
-                checkLogin(socket);
+                if (isAdd) {
+                    await checkPermission(socket, Permission.STACK_CREATE);
+                } else {
+                    await checkPermission(socket, Permission.STACK_EDIT);
+                    if (typeof(name) === "string") {
+                        await checkStackAccess(socket, name, socket.endpoint);
+                    }
+                }
                 await this.saveStack(server, name, composeYAML, composeENV, isAdd);
                 callbackResult({
                     ok: true,
@@ -42,10 +57,11 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
         agentSocket.on("deleteStack", async (name : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_DELETE);
                 if (typeof(name) !== "string") {
                     throw new ValidationError("Name must be a string");
                 }
+                await checkStackAccess(socket, name, socket.endpoint);
                 const stack = await Stack.getStack(server, name);
 
                 try {
@@ -69,12 +85,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
         agentSocket.on("getStack", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_VIEW);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
 
                 if (stack.isManagedByDockge) {
@@ -93,7 +110,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // requestStackList
         agentSocket.on("requestStackList", async (callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_VIEW);
                 server.sendStackList();
                 callbackResult({
                     ok: true,
@@ -108,12 +125,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // startStack
         agentSocket.on("startStack", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_START);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.start(socket);
                 callbackResult({
@@ -133,12 +151,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // stopStack
         agentSocket.on("stopStack", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_STOP);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.stop(socket);
                 callbackResult({
@@ -157,12 +176,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // restartStack
         agentSocket.on("restartStack", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_RESTART);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.restart(socket);
                 callbackResult({
@@ -179,12 +199,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // updateStack
         agentSocket.on("updateStack", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_UPDATE);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.update(socket);
                 callbackResult({
@@ -201,12 +222,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // down stack
         agentSocket.on("downStack", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_STOP);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.down(socket);
                 callbackResult({
@@ -223,12 +245,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // Services status
         agentSocket.on("serviceStatusList", async (stackName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_VIEW);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string");
                 }
 
+                await checkStackAccess(socket, stackName, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName, true);
                 const serviceStatusList = Object.fromEntries(await stack.getServiceStatusList());
                 callbackResult({
@@ -243,7 +266,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // Docker stats
         agentSocket.on("dockerStats", async (callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_VIEW);
 
                 const dockerStats = Object.fromEntries(await server.getDockerStats());
                 callbackResult({
@@ -259,12 +282,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // Start a service
         agentSocket.on("startService", async (stackName: unknown, serviceName: unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_START);
 
                 if (typeof (stackName) !== "string" || typeof (serviceName) !== "string") {
                     throw new ValidationError("Stack name and service name must be strings");
                 }
 
+                await checkStackAccess(socket, stackName as string, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.startService(socket, serviceName);
                 stack.joinCombinedTerminal(socket); // Ensure the combined terminal is joined
@@ -281,12 +305,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // Stop a service
         agentSocket.on("stopService", async (stackName: unknown, serviceName: unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_STOP);
 
                 if (typeof (stackName) !== "string" || typeof (serviceName) !== "string") {
                     throw new ValidationError("Stack name and service name must be strings");
                 }
 
+                await checkStackAccess(socket, stackName as string, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName);
                 await stack.stopService(socket, serviceName);
                 callbackResult({
@@ -301,12 +326,13 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
         agentSocket.on("restartService", async (stackName: unknown, serviceName: unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_RESTART);
 
                 if (typeof stackName !== "string" || typeof serviceName !== "string") {
                     throw new Error("Invalid stackName or serviceName");
                 }
 
+                await checkStackAccess(socket, stackName as string, socket.endpoint);
                 const stack = await Stack.getStack(server, stackName, true);
                 await stack.restartService(socket, serviceName);
                 callbackResult({
@@ -321,7 +347,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
         // getExternalNetworkList
         agentSocket.on("getDockerNetworkList", async (callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.STACK_VIEW);
                 const dockerNetworkList = await server.getDockerNetworkList();
                 callbackResult({
                     ok: true,

@@ -1,10 +1,11 @@
 import { DockgeServer } from "../dockge-server";
-import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
+import { callbackError, callbackResult, checkLogin, checkPermission, checkStackAccess, DockgeSocket, ValidationError } from "../util-server";
 import { log } from "../log";
 import { InteractiveTerminal, MainTerminal, Terminal } from "../terminal";
 import { Stack } from "../stack";
 import { AgentSocketHandler } from "../agent-socket-handler";
 import { AgentSocket } from "../../common/agent-socket";
+import { Permission } from "../rbac";
 
 export class TerminalSocketHandler extends AgentSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -33,10 +34,10 @@ export class TerminalSocketHandler extends AgentSocketHandler {
             }
         });
 
-        // Main Terminal
+        // Main Terminal (system console) - admin only
         agentSocket.on("mainTerminal", async (terminalName : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.TERMINAL_CONSOLE);
 
                 // Throw an error if console is not enabled
                 if (!server.config.enableConsole) {
@@ -83,10 +84,10 @@ export class TerminalSocketHandler extends AgentSocketHandler {
             }
         });
 
-        // Interactive Terminal for containers
+        // Interactive Terminal for containers - requires TERMINAL_EXEC + stack access
         agentSocket.on("interactiveTerminal", async (stackName : unknown, serviceName : unknown, shell : unknown, callback) => {
             try {
-                checkLogin(socket);
+                await checkPermission(socket, Permission.TERMINAL_EXEC);
 
                 if (typeof(stackName) !== "string") {
                     throw new ValidationError("Stack name must be a string.");
@@ -102,6 +103,9 @@ export class TerminalSocketHandler extends AgentSocketHandler {
 
                 log.debug("interactiveTerminal", "Stack name: " + stackName);
                 log.debug("interactiveTerminal", "Service name: " + serviceName);
+
+                // Check stack access before allowing exec
+                await checkStackAccess(socket, stackName, socket.endpoint);
 
                 // Get stack
                 const stack = await Stack.getStack(server, stackName);
