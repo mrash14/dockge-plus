@@ -1,6 +1,35 @@
-html[lang='fa'] {
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap');
+
+html[dir='rtl'] {
     #app {
-        font-family: 'IRANSans', 'Iranian Sans','B Nazanin', 'Tahoma', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, segoe ui, Roboto, helvetica neue, Arial, noto sans, sans-serif, apple color emoji, segoe ui emoji, segoe ui symbol, noto color emoji;
+        font-family: 'Vazirmatn', 'IRANSans', 'Tahoma', system-ui, -apple-system, BlinkMacSystemFont, segoe ui, Roboto, helvetica neue, Arial, sans-serif;
+    }
+
+    // Fix button paddings/margins in RTL
+    .btn {
+        .svg-inline--fa {
+            margin-left: 0.5rem;
+            margin-right: 0;
+        }
+    }
+
+    // Fix floats and text alignments if necessary
+    .text-start { text-align: right !important; }
+    .text-end { text-align: left !important; }
+
+    // Dropdown alignments
+    .dropdown-menu {
+        text-align: right;
+    }
+
+    // Fix pagination
+    .pagination {
+        padding-right: 0;
+    }
+
+    // Multiselect
+    ul.multiselect__content {
+        padding-right: 0 !important;
     }
 }
 
