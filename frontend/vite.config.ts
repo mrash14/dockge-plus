@@ -7,8 +7,17 @@ import "vue";
 
 const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
 
+import postcssRtlcss from "postcss-rtlcss";
+
 // https://vitejs.dev/config/
 export default defineConfig({
+    css: {
+        postcss: {
+            plugins: [
+                postcssRtlcss()
+            ]
+        }
+    },
     server: {
         port: 5000,
     },

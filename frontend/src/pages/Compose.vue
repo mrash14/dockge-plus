@@ -170,7 +170,7 @@
                     <h4 class="mb-3">{{ stack.composeFileName }}</h4>
 
                     <!-- YAML editor -->
-                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}" dir="ltr">
                         <code-mirror
                             ref="editor"
                             v-model="stack.composeYAML"
@@ -191,7 +191,7 @@
                     <!-- ENV editor -->
                     <div v-if="isEditMode">
                         <h4 class="mb-3">.env</h4>
-                        <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                        <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}" dir="ltr">
                             <code-mirror
                                 ref="editor"
                                 v-model="stack.composeENV"

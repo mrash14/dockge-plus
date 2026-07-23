@@ -1,5 +1,5 @@
 <template>
-    <div class="shadow-box">
+    <div class="shadow-box" dir="ltr">
         <div v-pre ref="terminal" class="main-terminal"></div>
     </div>
 </template>

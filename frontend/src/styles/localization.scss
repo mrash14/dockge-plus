@@ -4,35 +4,4 @@ html[dir='rtl'] {
     #app {
         font-family: 'Vazirmatn', 'IRANSans', 'Tahoma', system-ui, -apple-system, BlinkMacSystemFont, segoe ui, Roboto, helvetica neue, Arial, sans-serif;
     }
-
-    // Fix button paddings/margins in RTL
-    .btn {
-        .svg-inline--fa {
-            margin-left: 0.5rem;
-            margin-right: 0;
-        }
-    }
-
-    // Fix floats and text alignments if necessary
-    .text-start { text-align: right !important; }
-    .text-end { text-align: left !important; }
-
-    // Dropdown alignments
-    .dropdown-menu {
-        text-align: right;
-    }
-
-    // Fix pagination
-    .pagination {
-        padding-right: 0;
-    }
-
-    // Multiselect
-    ul.multiselect__content {
-        padding-right: 0 !important;
-    }
-}
-
-ul.multiselect__content {
-    padding-left: 0 !important;
 }
