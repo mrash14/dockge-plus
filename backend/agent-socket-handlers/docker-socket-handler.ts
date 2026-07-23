@@ -93,9 +93,11 @@ export class DockerSocketHandler extends AgentSocketHandler {
                     stack.joinCombinedTerminal(socket);
                 }
 
+                let stackJson = await stack.toJSON(socket.endpoint);
+                console.log("getStack returning:", JSON.stringify(stackJson));
                 callbackResult({
                     ok: true,
-                    stack: await stack.toJSON(socket.endpoint),
+                    stack: stackJson,
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);

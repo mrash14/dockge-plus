@@ -243,7 +243,14 @@
                 </div>
             </div>
 
-            <div v-if="!stack.isManagedByDockge && !processing">
+            <div v-if="accessDenied && !processing" class="mb-3">
+                <div class="shadow-box big-padding text-center">
+                    <h3 class="mb-3 text-danger"><font-awesome-icon icon="exclamation-circle" class="me-2"/>{{ $t("Access Denied") }}</h3>
+                    <p>{{ $t("You do not have permission to view this stack.") }}</p>
+                </div>
+            </div>
+
+            <div v-if="!stack.isManagedByDockge && !processing && !accessDenied">
                 {{ $t("stackNotManagedByDockgeMsg") }}
             </div>
 
@@ -621,14 +628,19 @@ export default {
 
         loadStack() {
             this.processing = true;
+            this.accessDenied = false;
             this.$root.emitAgent(this.endpoint, "getStack", this.stack.name, (res) => {
+                this.processing = false;
                 if (res.ok) {
                     this.stack = res.stack;
                     this.yamlCodeChange();
-                    this.processing = false;
                     this.bindTerminal();
                 } else {
-                    this.$root.toastRes(res);
+                    if (res.msg === "Access denied to this stack.") {
+                        this.accessDenied = true;
+                    } else {
+                        this.$root.toastRes(res);
+                    }
                 }
             });
         },
