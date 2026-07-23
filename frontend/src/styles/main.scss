@@ -272,13 +272,21 @@ optgroup {
     }
 
     a:not(.btn),
-    .table,
     .nav-link {
         color: $dark-font-color;
 
         &.btn-info {
             color: white;
         }
+    }
+
+    .table {
+        color: $dark-font-color;
+        --bs-table-color: #{$dark-font-color};
+        --bs-table-bg: transparent;
+        --bs-table-border-color: #{$dark-border-color};
+        --bs-table-striped-color: #{$dark-font-color};
+        --bs-table-hover-color: #{$dark-font-color};
     }
 
     .incident a,
