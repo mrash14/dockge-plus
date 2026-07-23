@@ -3,6 +3,10 @@
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
         <div class="title">
             <span>{{ stackName }}</span>
+            <div v-if="stack.path" class="path" :title="stack.path">
+                <font-awesome-icon icon="folder" class="me-1" />
+                {{ stack.path }}
+            </div>
         </div>
     </router-link>
 </template>
@@ -148,6 +152,17 @@ export default {
     }
     .title {
         margin-top: -4px;
+        display: flex;
+        flex-direction: column;
+    }
+    .path {
+        font-size: 10px;
+        opacity: 0.6;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
     }
     .endpoint {
         font-size: 12px;

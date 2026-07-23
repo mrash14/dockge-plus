@@ -82,6 +82,7 @@ export class DockgeServer {
     jwtSecret : string = "";
 
     stacksDir : string = "";
+    stacksDirs : string[] = [];
 
     /**
      *
@@ -159,6 +160,15 @@ export class DockgeServer {
         this.config.stacksDir = args.stacksDir || process.env.DOCKGE_STACKS_DIR || defaultStacksDir;
         this.config.enableConsole = args.enableConsole || process.env.DOCKGE_ENABLE_CONSOLE === "true" || false;
         this.stacksDir = this.config.stacksDir;
+
+        // Parse DOCKGE_STACKS
+        this.stacksDirs = [];
+        if (process.env.DOCKGE_STACKS) {
+            this.stacksDirs = process.env.DOCKGE_STACKS.split(":").map(s => s.trim()).filter(s => s.length > 0);
+        }
+        if (!this.stacksDirs.includes(this.stacksDir)) {
+            this.stacksDirs.unshift(this.stacksDir);
+        }
 
         log.debug("server", this.config);
 
@@ -563,9 +573,11 @@ export class DockgeServer {
             throw new Error(`Fatal error: ${this.config.dataDir} is not a directory`);
         }
 
-        // Create data/stacks directory
-        if (!fs.existsSync(this.stacksDir)) {
-            fs.mkdirSync(this.stacksDir, { recursive: true });
+        // Check if stack directory exists
+        for (const dir of this.stacksDirs) {
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
         }
 
         log.info("server", `Data Dir: ${this.config.dataDir}`);

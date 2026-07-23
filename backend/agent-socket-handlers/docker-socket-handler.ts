@@ -9,7 +9,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
         // Do not call super.create()
 
-        agentSocket.on("deployStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, callback) => {
+        agentSocket.on("deployStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, selectedStacksDir: unknown, callback) => {
             try {
                 if (isAdd) {
                     await checkPermission(socket, Permission.STACK_CREATE);
@@ -19,7 +19,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
                         await checkStackAccess(socket, name, socket.endpoint);
                     }
                 }
-                const stack = await this.saveStack(server, name, composeYAML, composeENV, isAdd);
+                const stack = await this.saveStack(server, name, composeYAML, composeENV, isAdd, selectedStacksDir);
                 await stack.deploy(socket);
                 server.sendStackList();
                 callbackResult({
@@ -33,7 +33,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
             }
         });
 
-        agentSocket.on("saveStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, callback) => {
+        agentSocket.on("saveStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, selectedStacksDir: unknown, callback) => {
             try {
                 if (isAdd) {
                     await checkPermission(socket, Permission.STACK_CREATE);
@@ -43,7 +43,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
                         await checkStackAccess(socket, name, socket.endpoint);
                     }
                 }
-                await this.saveStack(server, name, composeYAML, composeENV, isAdd);
+                await this.saveStack(server, name, composeYAML, composeENV, isAdd, selectedStacksDir);
                 callbackResult({
                     ok: true,
                     msg: "Saved",
@@ -101,6 +101,18 @@ export class DockerSocketHandler extends AgentSocketHandler {
                 callbackResult({
                     ok: true,
                     stack: await stack.toJSON(socket.endpoint),
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("getStacksDirs", async (callback) => {
+            try {
+                // Return the configured stacks dirs
+                callbackResult({
+                    ok: true,
+                    stacksDirs: server.stacksDirs,
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);
@@ -359,7 +371,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
         });
     }
 
-    async saveStack(server : DockgeServer, name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown) : Promise<Stack> {
+    async saveStack(server : DockgeServer, name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, selectedStacksDir : unknown) : Promise<Stack> {
         // Check types
         if (typeof(name) !== "string") {
             throw new ValidationError("Name must be a string");
@@ -373,8 +385,16 @@ export class DockerSocketHandler extends AgentSocketHandler {
         if (typeof(isAdd) !== "boolean") {
             throw new ValidationError("isAdd must be a boolean");
         }
+        if (selectedStacksDir !== undefined && typeof(selectedStacksDir) !== "string") {
+            throw new ValidationError("selectedStacksDir must be a string");
+        }
 
-        const stack = new Stack(server, name, composeYAML, composeENV, false);
+        // If isAdd is true and selectedStacksDir is provided, validate it
+        if (isAdd && selectedStacksDir && !server.stacksDirs.includes(selectedStacksDir as string)) {
+             throw new ValidationError("Invalid selected stacks directory");
+        }
+
+        const stack = new Stack(server, name, composeYAML, composeENV, false, selectedStacksDir as string | undefined);
         await stack.save(isAdd);
         return stack;
     }

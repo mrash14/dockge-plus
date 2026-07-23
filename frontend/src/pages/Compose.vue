@@ -103,6 +103,16 @@
                                     </option>
                                 </select>
                             </div>
+
+                            <!-- Stack Directory -->
+                            <div v-if="stacksDirs.length > 0" class="mt-3">
+                                <label for="stacksDir" class="form-label">{{ $t("stackDirectory") }}</label>
+                                <select id="stacksDir" v-model="selectedStacksDir" class="form-select">
+                                    <option v-for="dir in stacksDirs" :key="dir" :value="dir">
+                                        {{ dir }}
+                                    </option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -344,6 +354,8 @@ export default {
             newContainerName: "",
             stopServiceStatusTimeout: false,
             stopDockerStatsTimeout: false,
+            stacksDirs: [],
+            selectedStacksDir: "",
         };
     },
     computed: {
@@ -470,6 +482,15 @@ export default {
 
         $route(to, from) {
 
+        },
+
+        endpoint: {
+            handler(val) {
+                if (val !== undefined && this.isAdd) {
+                    this.fetchStacksDirs();
+                }
+            },
+            immediate: true
         }
     },
     mounted() {
@@ -516,6 +537,17 @@ export default {
 
     },
     methods: {
+        fetchStacksDirs() {
+            this.$root.emitAgent(this.endpoint, "getStacksDirs", (res) => {
+                if (res.ok) {
+                    this.stacksDirs = res.stacksDirs;
+                    if (!this.selectedStacksDir || !this.stacksDirs.includes(this.selectedStacksDir)) {
+                        this.selectedStacksDir = this.stacksDirs[0];
+                    }
+                }
+            });
+        },
+
         startServiceStatusTimeout() {
             clearTimeout(serviceStatusTimeout);
             serviceStatusTimeout = setTimeout(async () => {
@@ -633,7 +665,7 @@ export default {
 
             this.bindTerminal();
 
-            this.$root.emitAgent(this.stack.endpoint, "deployStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.isAdd, (res) => {
+            this.$root.emitAgent(this.stack.endpoint, "deployStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.isAdd, this.selectedStacksDir, (res) => {
                 this.processing = false;
                 this.$root.toastRes(res);
 
@@ -647,7 +679,7 @@ export default {
         saveStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.stack.endpoint, "saveStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.isAdd, (res) => {
+            this.$root.emitAgent(this.stack.endpoint, "saveStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.isAdd, this.selectedStacksDir, (res) => {
                 this.processing = false;
                 this.$root.toastRes(res);
 
