@@ -1,9 +1,10 @@
 import { SocketHandler } from "../socket-handler.js";
 import { DockgeServer } from "../dockge-server";
 import { log } from "../log";
-import { checkLogin, DockgeSocket } from "../util-server";
+import { checkLogin, checkPermission, DockgeSocket, verifyProxiedEventAccess } from "../util-server";
 import { AgentSocket } from "../../common/agent-socket";
 import { ALL_ENDPOINTS } from "../../common/util-common";
+import { Permission } from "../rbac";
 
 export class AgentProxySocketHandler extends SocketHandler {
 
@@ -23,14 +24,20 @@ export class AgentProxySocketHandler extends SocketHandler {
 
                 if (endpoint === ALL_ENDPOINTS) {      // Send to all endpoints
                     log.debug("agent", "Sending to all endpoints: " + eventName);
+                    // For ALL_ENDPOINTS, we verify with an empty endpoint (which might fail if they don't have global access)
+                    // But actually, ALL_ENDPOINTS is mostly used for getters like `agentStatusList` where RBAC is checked inside.
+                    await verifyProxiedEventAccess(socket, "", eventName, args);
                     socket.instanceManager.emitToAllEndpoints(eventName, ...args);
 
                 } else if (!endpoint || endpoint === socket.endpoint) {      // Direct connection or matching endpoint
                     log.debug("agent", "Matched endpoint: " + eventName);
+                    // Local execution: The specific socket handlers will verify access.
                     agentSocket.call(eventName, ...args);
 
                 } else {
                     log.debug("agent", "Proxying request to " + endpoint + " for " + eventName);
+                    // Proxied execution: Verify access before sending to agent
+                    await verifyProxiedEventAccess(socket, endpoint, eventName, args);
                     await socket.instanceManager.emitToEndpoint(endpoint, eventName, ...args);
                 }
             } catch (e) {
