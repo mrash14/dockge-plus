@@ -56,7 +56,7 @@ export function checkLogin(socket : DockgeSocket) {
  * @param {DockgeSocket} socket - The socket connection
  * @param {Permission} permission - The permission to check
  */
-export async function checkPermission(socket : DockgeSocket, permission : Permission) {
+export async function checkPermission(socket : DockgeSocket, permission : string) {
     checkLogin(socket);
 
     const user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
@@ -86,7 +86,7 @@ export async function checkPermission(socket : DockgeSocket, permission : Permis
  * @param {string} endpoint - The endpoint (empty string for local)
  * @param {Permission} [requiredPermission] - Optional permission to check against the access level
  */
-export async function checkStackAccess(socket : DockgeSocket, stackName : string, endpoint : string = "", requiredPermission? : Permission) {
+export async function checkStackAccess(socket : DockgeSocket, stackName : string, endpoint : string = "", requiredPermission? : string) {
     checkLogin(socket);
 
     const user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
@@ -117,7 +117,7 @@ export async function checkStackAccess(socket : DockgeSocket, stackName : string
  * @param {unknown[]} args - The event arguments
  */
 export async function verifyProxiedEventAccess(socket: DockgeSocket, endpoint: string, eventName: string, args: unknown[]) {
-    let requiredPermission: Permission | null = null;
+    let requiredPermission: string | null = null;
     let stackNameIndex: number = -1;
 
     switch (eventName) {

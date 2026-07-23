@@ -21,6 +21,7 @@ export const Permission = {
     STACK_RESTART: "stack.restart",
     STACK_CREATE: "stack.create",
     STACK_EDIT: "stack.edit",
+    STACK_UPDATE: "stack.update",
     STACK_DELETE: "stack.delete",
     STACK_LOGS: "stack.logs",
     USER_MANAGE: "user.manage",
@@ -60,6 +61,7 @@ export function hasPermission(userType: string, accessLevel: string | null, perm
                     Permission.STACK_RESTART,
                     Permission.STACK_CREATE,
                     Permission.STACK_EDIT,
+                    Permission.STACK_UPDATE,
                     Permission.STACK_DELETE,
                     Permission.TERMINAL_EXEC
                 ].includes(permission);
@@ -130,6 +132,6 @@ export async function getAccessibleStackNames(userId: number, userType: string, 
     );
 
     return rows
-        .map((row: { stack_name: string }) => row.stack_name)
+        .map((row: any) => row.stack_name)
         .filter((name: string) => name !== "*");
 }

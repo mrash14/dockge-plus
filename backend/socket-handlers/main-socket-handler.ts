@@ -244,7 +244,7 @@ export class MainSocketHandler extends SocketHandler {
 
         socket.on("getSettings", async (callback) => {
             try {
-                await checkPermission(socket, Permission.SETTINGS_VIEW);
+                await checkPermission(socket, Permission.SETTINGS_EDIT);
                 const data = await Settings.getSettings("general");
 
                 if (fs.existsSync(path.join(server.stacksDir, "global.env"))) {

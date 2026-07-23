@@ -389,7 +389,7 @@ export class DockgeServer {
 
             socket.emit("userStackPermissions", {
                 isAdmin: false,
-                accessRules: rows.map((row: { stack_name: string, endpoint: string, access_level: string }) => ({
+                accessRules: rows.map((row: any) => ({
                     stackName: row.stack_name,
                     endpoint: row.endpoint,
                     accessLevel: row.access_level,

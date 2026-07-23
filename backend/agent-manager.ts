@@ -6,6 +6,7 @@ import { isDev, LooseObject, sleep } from "../common/util-common";
 import semver from "semver";
 import { R } from "redbean-node";
 import dayjs, { Dayjs } from "dayjs";
+import { UserType } from "./rbac";
 
 /**
  * Dockge Instance Manager
@@ -129,10 +130,7 @@ export class AgentManager {
         let obj = new URL(url);
         let endpoint = obj.host;
 
-        this.socket.emit("agentStatus", {
-            endpoint: endpoint,
-            status: "connecting",
-        });
+        this.emitAgentStatus(endpoint, "connecting");
 
         if (!endpoint) {
             log.error("agent-manager", "Invalid endpoint: " + endpoint + " URL: " + url);
@@ -161,35 +159,23 @@ export class AgentManager {
                 if (res.ok) {
                     log.info("agent-manager", "Logged in to the socket server: " + endpoint);
                     this.agentLoggedInList[endpoint] = true;
-                    this.socket.emit("agentStatus", {
-                        endpoint: endpoint,
-                        status: "online",
-                    });
+                    this.emitAgentStatus(endpoint, "online");
                 } else {
                     log.error("agent-manager", "Failed to login to the socket server: " + endpoint);
                     this.agentLoggedInList[endpoint] = false;
-                    this.socket.emit("agentStatus", {
-                        endpoint: endpoint,
-                        status: "offline",
-                    });
+                    this.emitAgentStatus(endpoint, "offline");
                 }
             });
         });
 
         client.on("connect_error", (err) => {
             log.error("agent-manager", "Error from the socket server: " + endpoint);
-            this.socket.emit("agentStatus", {
-                endpoint: endpoint,
-                status: "offline",
-            });
+            this.emitAgentStatus(endpoint, "offline");
         });
 
         client.on("disconnect", () => {
             log.info("agent-manager", "Disconnected from the socket server: " + endpoint);
-            this.socket.emit("agentStatus", {
-                endpoint: endpoint,
-                status: "offline",
-            });
+            this.emitAgentStatus(endpoint, "offline");
         });
 
         client.on("agent", (...args : unknown[]) => {
@@ -201,16 +187,34 @@ export class AgentManager {
 
             // Disconnect if the version is lower than 1.4.0
             if (!isDev && semver.satisfies(res.version, "< 1.4.0")) {
-                this.socket.emit("agentStatus", {
-                    endpoint: endpoint,
-                    status: "offline",
-                    msg: `${endpoint}: Unsupported version: ` + res.version,
-                });
+                this.emitAgentStatus(endpoint, "offline", `${endpoint}: Unsupported version: ` + res.version);
                 client.disconnect();
             }
         });
 
         this.agentSocketList[endpoint] = client;
+    }
+
+    async emitAgentStatus(endpoint: string, status: string, msg?: string) {
+        const userType = this.socket.userType || UserType.ADMIN;
+        if (userType !== UserType.ADMIN && this.socket.userID) {
+            const rows = await R.getAll(
+                "SELECT DISTINCT endpoint FROM user_stack_access WHERE user_id = ?",
+                [this.socket.userID]
+            );
+            const accessibleEndpoints = rows.map((r: any) => r.endpoint);
+            const hasWildcard = accessibleEndpoints.includes("*");
+
+            if (!hasWildcard && !accessibleEndpoints.includes(endpoint)) {
+                return; // User has no access, don't emit status
+            }
+        }
+
+        this.socket.emit("agentStatus", {
+            endpoint,
+            status,
+            ...(msg ? { msg } : {}),
+        });
     }
 
     disconnect(endpoint : string) {
@@ -304,6 +308,26 @@ export class AgentManager {
         for (let endpoint in list) {
             let agent = list[endpoint];
             result[endpoint] = agent.toJSON();
+        }
+
+        const userType = this.socket.userType || UserType.ADMIN;
+        if (userType !== UserType.ADMIN && this.socket.userID) {
+            const rows = await R.getAll(
+                "SELECT DISTINCT endpoint FROM user_stack_access WHERE user_id = ?",
+                [this.socket.userID]
+            );
+            const accessibleEndpoints = rows.map((r: any) => r.endpoint);
+            const hasWildcard = accessibleEndpoints.includes("*");
+
+            if (!hasWildcard) {
+                let filteredResult : Record<string, LooseObject> = {};
+                for (const ep in result) {
+                    if (accessibleEndpoints.includes(ep)) {
+                        filteredResult[ep] = result[ep];
+                    }
+                }
+                result = filteredResult;
+            }
         }
 
         this.socket.emit("agentList", {

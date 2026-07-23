@@ -42,7 +42,7 @@
                     <div class="shadow-box big-padding">
                         <h4 class="mb-3">{{ $tc("dockgeAgent", 2) }} <span class="badge bg-warning" style="font-size: 12px;">beta</span></h4>
 
-                        <div v-for="(agentItem, endpoint) in $root.accessibleAgentList" :key="endpoint" class="mb-3 agent">
+                        <div v-for="(agentItem, endpoint) in $root.agentList" :key="endpoint" class="mb-3 agent">
                             <!-- Agent Status -->
                             <template v-if="$root.agentStatusList[endpoint]">
                                 <span v-if="$root.agentStatusList[endpoint] === 'online'" class="badge bg-primary me-2">{{ $t("agentOnline") }}</span>

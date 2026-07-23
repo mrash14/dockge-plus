@@ -147,28 +147,6 @@ export default defineComponent({
             );
         },
 
-        /**
-         * Returns only the agents that the user has at least some access to.
-         * @returns {Record<string, object>}
-         */
-        accessibleAgentList() {
-            if (this.stackAccessIsAdmin) {
-                return this.agentList;
-            }
-
-            let filtered : Record<string, object> = {};
-            for (let endpoint in this.agentList) {
-                const hasAccess = this.stackAccessRules.some(
-                    (rule: { endpoint: string }) => rule.endpoint === endpoint || rule.endpoint === "*"
-                );
-
-                if (hasAccess) {
-                    filtered[endpoint] = this.agentList[endpoint];
-                }
-            }
-            return filtered;
-        },
-
     },
     watch: {
 
