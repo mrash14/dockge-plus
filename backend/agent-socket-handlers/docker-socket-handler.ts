@@ -12,7 +12,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
         agentSocket.on("deployStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, selectedStacksDir: unknown, callback) => {
             try {
                 if (isAdd) {
-                    await checkPermission(socket, Permission.STACK_CREATE);
+                    await checkStackAccess(socket, "*", socket.endpoint, Permission.STACK_CREATE);
                 } else {
                     if (typeof(name) === "string") {
                         await checkStackAccess(socket, name, socket.endpoint, Permission.STACK_EDIT);
@@ -35,7 +35,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
         agentSocket.on("saveStack", async (name : unknown, composeYAML : unknown, composeENV : unknown, isAdd : unknown, selectedStacksDir: unknown, callback) => {
             try {
                 if (isAdd) {
-                    await checkPermission(socket, Permission.STACK_CREATE);
+                    await checkStackAccess(socket, "*", socket.endpoint, Permission.STACK_CREATE);
                 } else {
                     if (typeof(name) === "string") {
                         await checkStackAccess(socket, name, socket.endpoint, Permission.STACK_EDIT);
