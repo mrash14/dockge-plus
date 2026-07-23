@@ -17,12 +17,12 @@
             <div class="col-7">
                 <div class="function">
                     <div class="btn-group me-2" role="group">
-                        <router-link v-if="!isEditMode && (status === 'running' || status === 'healthy') && $root.hasPermission('terminal.exec')" class="btn btn-normal" :to="terminalRouteLink" disabled="">
+                        <router-link v-if="!isEditMode && (status === 'running' || status === 'healthy') && $root.canExecStack(stackName, endpoint)" class="btn btn-normal" :to="terminalRouteLink" disabled="">
                             <font-awesome-icon icon="terminal" />
                             Bash
                         </router-link>
                         <button
-                            v-if="serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy' && $root.canOperateStacks"
+                            v-if="serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy' && $root.canOperateStack(stackName, endpoint)"
                             class="btn btn-primary"
                             :disabled="processing"
                             @click="startService"
@@ -31,7 +31,7 @@
                             {{ $t("startStack") }}
                         </button>
                         <button
-                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy') && $root.canOperateStacks"
+                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy') && $root.canOperateStack(stackName, endpoint)"
                             class="btn btn-normal"
                             :disabled="processing"
                             @click="restartService"
@@ -40,7 +40,7 @@
                             {{ $t("restartStack") }}
                         </button>
                         <button
-                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy') && $root.canOperateStacks"
+                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy') && $root.canOperateStack(stackName, endpoint)"
                             class="btn btn-normal"
                             :disabled="processing"
                             @click="stopService"

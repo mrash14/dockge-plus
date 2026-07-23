@@ -347,6 +347,9 @@ export class DockgeServer {
             userType: socket.userType,
         });
 
+        // Send per-stack access permissions to frontend
+        await this.sendUserStackPermissions(socket);
+
         try {
             this.sendStackList();
         } catch (e) {
@@ -357,6 +360,42 @@ export class DockgeServer {
 
         // Also connect to other dockge instances
         socket.instanceManager.connectAll();
+    }
+
+    /**
+     * Send user's stack access rules to the frontend.
+     * Admin users get an empty array (they have full access to everything).
+     * Normal users get their access rules from the database.
+     */
+    async sendUserStackPermissions(socket : DockgeSocket) {
+        if (!socket.userID) {
+            return;
+        }
+
+        const userType = socket.userType || UserType.ADMIN;
+
+        if (userType === UserType.ADMIN) {
+            // Admin has full access, no restrictions
+            socket.emit("userStackPermissions", {
+                isAdmin: true,
+                accessRules: [],
+            });
+        } else {
+            // Get user's access rules from the database
+            const rows = await R.getAll(
+                "SELECT stack_name, endpoint, access_level FROM user_stack_access WHERE user_id = ?",
+                [socket.userID]
+            );
+
+            socket.emit("userStackPermissions", {
+                isAdmin: false,
+                accessRules: rows.map((row: { stack_name: string, endpoint: string, access_level: string }) => ({
+                    stackName: row.stack_name,
+                    endpoint: row.endpoint,
+                    accessLevel: row.access_level,
+                })),
+            });
+        }
     }
 
     /**
@@ -637,6 +676,13 @@ export class DockgeServer {
                     ok: true,
                     stackList: Object.fromEntries(map),
                 });
+
+                // Also send updated per-stack permissions
+                try {
+                    await this.sendUserStackPermissions(dockgeSocket);
+                } catch (e) {
+                    log.error("server", "Failed to send user stack permissions: " + e);
+                }
             }
         }
     }

@@ -49,6 +49,11 @@ export default defineComponent({
 
             // RBAC
             userType: "",
+
+            // Per-stack access rules from the server
+            // Each rule: { stackName, endpoint, accessLevel }
+            stackAccessRules: [] as Array<{ stackName: string, endpoint: string, accessLevel: string }>,
+            stackAccessIsAdmin: true,
         };
     },
     computed: {
@@ -112,19 +117,34 @@ export default defineComponent({
         },
 
         /**
-         * Can the current user create/edit/delete stacks?
+         * Can the current user create stacks?
+         * Admin: always true. Normal users: true only if they have a 'manager' rule on '*'.
+         * Used for global UI elements like the "Create new stack" button.
          * @returns {boolean}
          */
         canManageStacks() {
-            return this.hasPermission("stack.create");
+            if (this.stackAccessIsAdmin) {
+                return true;
+            }
+            return this.stackAccessRules.some(
+                (rule: { stackName: string, accessLevel: string }) => 
+                    rule.stackName === "*" && this._accessLevelRank(rule.accessLevel) >= 3
+            );
         },
 
         /**
-         * Can the current user start/stop/restart?
+         * Can the current user globally operate stacks?
+         * Admin: always true. Normal users: true only if they have at least one 'operator' or 'manager' access rule.
+         * Used for generic checks, but most logic should use the per-stack method.
          * @returns {boolean}
          */
         canOperateStacks() {
-            return this.hasPermission("stack.start");
+            if (this.stackAccessIsAdmin) {
+                return true;
+            }
+            return this.stackAccessRules.some(
+                (rule: { accessLevel: string }) => this._accessLevelRank(rule.accessLevel) >= 2
+            );
         },
 
     },
@@ -268,6 +288,14 @@ export default defineComponent({
             socket.on("userType", (data) => {
                 if (data && data.userType) {
                     this.userType = data.userType;
+                }
+            });
+
+            // Listen for per-stack access permissions
+            socket.on("userStackPermissions", (data) => {
+                if (data) {
+                    this.stackAccessIsAdmin = !!data.isAdmin;
+                    this.stackAccessRules = data.accessRules || [];
                 }
             });
 
@@ -427,6 +455,8 @@ export default defineComponent({
             this.loggedIn = false;
             this.username = null;
             this.userType = "";
+            this.stackAccessRules = [];
+            this.stackAccessIsAdmin = true;
             this.clearData();
         },
 
@@ -477,6 +507,87 @@ export default defineComponent({
             // (server enforces per-stack access level)
             const adminOnlyPermissions = ["user.manage", "agent.manage", "settings.edit", "terminal.console"];
             return !adminOnlyPermissions.includes(permission);
+        },
+
+        /**
+         * Get the effective access level for a specific stack.
+         * Admin users always return "manager" (full access).
+         * Normal users: look up the access rules from the server.
+         * Supports wildcard rules (* for stackName and/or endpoint).
+         * @param {string} stackName - The stack name
+         * @param {string} endpoint - The endpoint (empty string for local)
+         * @returns {string|null} The access level: "viewer", "operator", "manager", or null if no access
+         */
+        getStackAccessLevel(stackName : string, endpoint : string = "") : string | null {
+            if (this.stackAccessIsAdmin) {
+                return "manager";
+            }
+
+            // Check for exact match first, then wildcard matches
+            // Priority: exact > wildcard stack > wildcard endpoint > wildcard both
+            let bestMatch : string | null = null;
+
+            for (const rule of this.stackAccessRules) {
+                const stackMatch = rule.stackName === stackName || rule.stackName === "*";
+                const endpointMatch = rule.endpoint === endpoint || rule.endpoint === "*";
+
+                if (stackMatch && endpointMatch) {
+                    // Use the highest access level found
+                    if (!bestMatch || this._accessLevelRank(rule.accessLevel) > this._accessLevelRank(bestMatch)) {
+                        bestMatch = rule.accessLevel;
+                    }
+                }
+            }
+
+            return bestMatch;
+        },
+
+        /**
+         * Get numeric rank of an access level for comparison.
+         * Higher rank = more permissions.
+         */
+        _accessLevelRank(level : string) : number {
+            switch (level) {
+                case "viewer": return 1;
+                case "operator": return 2;
+                case "manager": return 3;
+                default: return 0;
+            }
+        },
+
+        /**
+         * Check if the user can operate (start/stop/restart) a specific stack.
+         * Requires at least "operator" access level.
+         */
+        canOperateStack(stackName : string, endpoint : string = "") : boolean {
+            const level = this.getStackAccessLevel(stackName, endpoint);
+            return level !== null && this._accessLevelRank(level) >= 2; // operator or manager
+        },
+
+        /**
+         * Check if the user can manage (create/edit/delete) a specific stack.
+         * Requires "manager" access level.
+         */
+        canManageStack(stackName : string, endpoint : string = "") : boolean {
+            const level = this.getStackAccessLevel(stackName, endpoint);
+            return level !== null && this._accessLevelRank(level) >= 3; // manager only
+        },
+
+        /**
+         * Check if the user has at least viewer access to a specific stack.
+         */
+        canViewStack(stackName : string, endpoint : string = "") : boolean {
+            const level = this.getStackAccessLevel(stackName, endpoint);
+            return level !== null && this._accessLevelRank(level) >= 1; // any level
+        },
+
+        /**
+         * Check if user can use terminal exec on a specific stack.
+         * Requires "manager" access level.
+         */
+        canExecStack(stackName : string, endpoint : string = "") : boolean {
+            const level = this.getStackAccessLevel(stackName, endpoint);
+            return level !== null && this._accessLevelRank(level) >= 3; // manager only
         },
 
     }
