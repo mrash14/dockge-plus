@@ -145,9 +145,9 @@
                         <!-- Server (Endpoint) -->
                         <select v-model="access.endpoint" class="form-select" @change="onEndpointChange(index)">
                             <option value="*">{{ $t("All Servers") }}</option>
-                            <option value="">{{ $t("localServer") }}</option>
                             <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint">
-                                {{ agent.name }} ({{ agentEndpoint }})
+                                <template v-if="agentEndpoint === ''">{{ $t("localServer") }}</template>
+                                <template v-else>{{ agent.name }} ({{ agentEndpoint }})</template>
                             </option>
                         </select>
 
