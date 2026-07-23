@@ -26,13 +26,15 @@
                         </div>
                     </div>
 
-                    <!-- Docker Run -->
-                    <h2 class="mb-3">{{ $t("Docker Run") }}</h2>
-                    <div class="mb-3">
-                        <textarea id="name" v-model="dockerRunCommand" type="text" class="form-control docker-run shadow-box" required placeholder="docker run ..."></textarea>
-                    </div>
+                    <!-- Docker Run - only for users who can create stacks -->
+                    <div v-if="$root.canManageStacks">
+                        <h2 class="mb-3">{{ $t("Docker Run") }}</h2>
+                        <div class="mb-3">
+                            <textarea id="name" v-model="dockerRunCommand" type="text" class="form-control docker-run shadow-box" required placeholder="docker run ..."></textarea>
+                        </div>
 
-                    <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
+                        <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
+                    </div>
                 </div>
                 <!-- Right -->
                 <div class="col-md-5">
@@ -55,8 +57,8 @@
                                 <span v-else :href="agentItem.url" class="me-2">{{ agentItem.name }}</span>
                             </template>
 
-                            <!-- Edit Name  -->
-                            <font-awesome-icon v-if="agentItem.name !== ''" icon="pen-to-square" @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.Name]" />
+                            <!-- Edit Name - admin only -->
+                            <font-awesome-icon v-if="agentItem.name !== '' && $root.isAdmin" icon="pen-to-square" @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.Name]" />
 
                             <!-- Edit Dialog -->
                             <BModal v-model="showEditAgentNameDialog[agentItem.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agentItem.url, agentItem.updatedName)">
@@ -64,8 +66,8 @@
                                 <input id="updatedName" v-model="agentItem.updatedName" type="text" class="form-control" optional>
                             </BModal>
 
-                            <!-- Remove Button -->
-                            <font-awesome-icon v-if="endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]" />
+                            <!-- Remove Button - admin only -->
+                            <font-awesome-icon v-if="endpoint !== '' && $root.isAdmin" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]" />
 
                             <!-- Remove Agent Dialog -->
                             <BModal v-model="showRemoveAgentDialog[agentItem.url]" :okTitle="$t('removeAgent')" okVariant="danger" @ok="removeAgent(agentItem.url)">
@@ -74,7 +76,7 @@
                             </BModal>
                         </div>
 
-                        <button v-if="!showAgentForm" class="btn btn-normal" @click="showAgentForm = !showAgentForm">{{ $t("addAgent") }}</button>
+                        <button v-if="!showAgentForm && $root.isAdmin" class="btn btn-normal" @click="showAgentForm = !showAgentForm">{{ $t("addAgent") }}</button>
 
                         <!-- Add Agent Form -->
                         <form v-if="showAgentForm" @submit.prevent="addAgent">

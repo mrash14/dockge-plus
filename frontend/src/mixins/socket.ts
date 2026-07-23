@@ -4,6 +4,7 @@ import { defineComponent } from "vue";
 import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
 import { AgentSocket } from "../../../common/agent-socket";
+import { FRONTEND_ROLE_PERMISSIONS, ROLE_ADMIN } from "../../../common/util-common";
 
 let socket : Socket;
 
@@ -45,6 +46,9 @@ export default defineComponent({
             agentList: {
 
             },
+
+            // RBAC
+            userRole: "",
         };
     },
     computed: {
@@ -97,6 +101,30 @@ export default defineComponent({
                 return true;
             }
             return this.info.version === this.frontendVersion;
+        },
+
+        /**
+         * Is the current user an admin?
+         * @returns {boolean}
+         */
+        isAdmin() {
+            return this.userRole === ROLE_ADMIN;
+        },
+
+        /**
+         * Can the current user create/edit/delete stacks?
+         * @returns {boolean}
+         */
+        canManageStacks() {
+            return this.hasPermission("stack.create");
+        },
+
+        /**
+         * Can the current user start/stop/restart?
+         * @returns {boolean}
+         */
+        canOperateStacks() {
+            return this.hasPermission("stack.start");
         },
 
     },
@@ -232,7 +260,15 @@ export default defineComponent({
                 this.storage().token = "autoLogin";
                 this.socketIO.token = "autoLogin";
                 this.allowLoginDialog = false;
+                this.userRole = ROLE_ADMIN; // autoLogin is always admin
                 this.afterLogin();
+            });
+
+            // Listen for user role from server
+            socket.on("userRole", (data) => {
+                if (data && data.role) {
+                    this.userRole = data.role;
+                }
             });
 
             socket.on("setup", () => {
@@ -345,7 +381,9 @@ export default defineComponent({
                     this.storage().token = res.token;
                     this.socketIO.token = res.token;
                     this.loggedIn = true;
-                    this.username = this.getJWTPayload()?.username;
+                    const payload = this.getJWTPayload();
+                    this.username = payload?.username;
+                    this.userRole = payload?.role || ROLE_ADMIN;
 
                     this.afterLogin();
 
@@ -370,7 +408,9 @@ export default defineComponent({
                     this.logout();
                 } else {
                     this.loggedIn = true;
-                    this.username = this.getJWTPayload()?.username;
+                    const payload = this.getJWTPayload();
+                    this.username = payload?.username;
+                    this.userRole = payload?.role || ROLE_ADMIN;
                     this.afterLogin();
                 }
             });
@@ -386,6 +426,7 @@ export default defineComponent({
             this.socketIO.token = null;
             this.loggedIn = false;
             this.username = null;
+            this.userRole = "";
             this.clearData();
         },
 
@@ -414,6 +455,23 @@ export default defineComponent({
 
         unbindTerminal(terminalName : string) {
             terminalMap.delete(terminalName);
+        },
+
+        /**
+         * Check if the current user has a specific permission.
+         * Uses the frontend role-permission mapping.
+         * @param {string} permission - The permission to check
+         * @returns {boolean}
+         */
+        hasPermission(permission : string) : boolean {
+            if (!this.userRole) {
+                return false;
+            }
+            const permissions = FRONTEND_ROLE_PERMISSIONS[this.userRole];
+            if (!permissions) {
+                return false;
+            }
+            return permissions.includes(permission);
         },
 
     }
