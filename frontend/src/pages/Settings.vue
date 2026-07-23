@@ -73,23 +73,42 @@ export default {
         },
 
         subMenus() {
-            return {
-                general: {
+            let menus = {};
+
+            // Admin-only menus
+            if (this.$root.isAdmin) {
+                menus.general = {
                     title: this.$t("general"),
-                },
-                appearance: {
-                    title: this.$t("Appearance"),
-                },
-                security: {
-                    title: this.$t("Security"),
-                },
-                globalEnv: {
-                    title: this.$t("GlobalEnv"),
-                },
-                about: {
-                    title: this.$t("About"),
-                },
+                };
+            }
+
+            menus.appearance = {
+                title: this.$t("Appearance"),
             };
+
+            menus.security = {
+                title: this.$t("Security"),
+            };
+
+            // Admin-only menus
+            if (this.$root.isAdmin) {
+                menus.globalEnv = {
+                    title: this.$t("GlobalEnv"),
+                };
+            }
+
+            // User Management - admin only
+            if (this.$root.isAdmin) {
+                menus.users = {
+                    title: this.$t("Users"),
+                };
+            }
+
+            menus.about = {
+                title: this.$t("About"),
+            };
+
+            return menus;
         },
     },
 
