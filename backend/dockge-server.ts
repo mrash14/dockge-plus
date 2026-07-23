@@ -157,18 +157,13 @@ export class DockgeServer {
         this.config.port = args.port || Number(process.env.DOCKGE_PORT) || 5001;
         this.config.hostname = args.hostname || process.env.DOCKGE_HOSTNAME || undefined;
         this.config.dataDir = args.dataDir || process.env.DOCKGE_DATA_DIR || "./data/";
-        this.config.stacksDir = args.stacksDir || process.env.DOCKGE_STACKS_DIR || defaultStacksDir;
-        this.config.enableConsole = args.enableConsole || process.env.DOCKGE_ENABLE_CONSOLE === "true" || false;
-        this.stacksDir = this.config.stacksDir;
+        // Parse DOCKGE_STACKS_DIR and DOCKGE_STACKS
+        const { configStacksDir, stacksDirs } = DockgeServer.parseStacksDirs(args.stacksDir, process.env.DOCKGE_STACKS_DIR, process.env.DOCKGE_STACKS, defaultStacksDir);
+        this.config.stacksDir = configStacksDir;
+        this.stacksDir = configStacksDir;
+        this.stacksDirs = stacksDirs;
 
-        // Parse DOCKGE_STACKS
-        this.stacksDirs = [];
-        if (process.env.DOCKGE_STACKS) {
-            this.stacksDirs = process.env.DOCKGE_STACKS.split(":").map(s => s.trim()).filter(s => s.length > 0);
-        }
-        if (!this.stacksDirs.includes(this.stacksDir)) {
-            this.stacksDirs.unshift(this.stacksDir);
-        }
+        this.config.enableConsole = args.enableConsole || process.env.DOCKGE_ENABLE_CONSOLE === "true" || false;
 
         log.debug("server", this.config);
 
@@ -752,4 +747,27 @@ export class DockgeServer {
         return `${protocol}://${host}:${this.config.port}`;
     }
 
+    /**
+     * Parse stacks directory paths
+     */
+    static parseStacksDirs(argsStacksDir?: string, envStacksDir?: string, envStacks?: string, defaultStacksDir?: string): { configStacksDir: string, stacksDirs: string[] } {
+        let primaryStacksDir = argsStacksDir || envStacksDir || defaultStacksDir || "./stacks";
+        let allDirs: string[] = [];
+
+        if (primaryStacksDir.includes(":")) {
+            allDirs = primaryStacksDir.split(":").map(s => s.trim()).filter(s => s.length > 0);
+        } else {
+            allDirs.push(primaryStacksDir);
+        }
+
+        if (envStacks) {
+            let additionalDirs = envStacks.split(":").map(s => s.trim()).filter(s => s.length > 0);
+            allDirs = allDirs.concat(additionalDirs);
+        }
+
+        return {
+            configStacksDir: allDirs[0],
+            stacksDirs: [...new Set(allDirs)]
+        };
+    }
 }
