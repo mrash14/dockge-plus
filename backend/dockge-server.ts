@@ -157,8 +157,8 @@ export class DockgeServer {
         this.config.port = args.port || Number(process.env.DOCKGE_PORT) || 5001;
         this.config.hostname = args.hostname || process.env.DOCKGE_HOSTNAME || undefined;
         this.config.dataDir = args.dataDir || process.env.DOCKGE_DATA_DIR || "./data/";
-        // Parse DOCKGE_STACKS_DIR and DOCKGE_STACKS
-        const { configStacksDir, stacksDirs } = DockgeServer.parseStacksDirs(args.stacksDir, process.env.DOCKGE_STACKS_DIR, process.env.DOCKGE_STACKS, defaultStacksDir);
+        // Parse DOCKGE_STACKS_DIR
+        const { configStacksDir, stacksDirs } = DockgeServer.parseStacksDirs(args.stacksDir, process.env.DOCKGE_STACKS_DIR, defaultStacksDir);
         this.config.stacksDir = configStacksDir;
         this.stacksDir = configStacksDir;
         this.stacksDirs = stacksDirs;
@@ -750,7 +750,7 @@ export class DockgeServer {
     /**
      * Parse stacks directory paths
      */
-    static parseStacksDirs(argsStacksDir?: string, envStacksDir?: string, envStacks?: string, defaultStacksDir?: string): { configStacksDir: string, stacksDirs: string[] } {
+    static parseStacksDirs(argsStacksDir?: string, envStacksDir?: string, defaultStacksDir?: string): { configStacksDir: string, stacksDirs: string[] } {
         let primaryStacksDir = argsStacksDir || envStacksDir || defaultStacksDir || "./stacks";
         let allDirs: string[] = [];
 
@@ -758,11 +758,6 @@ export class DockgeServer {
             allDirs = primaryStacksDir.split(":").map(s => s.trim()).filter(s => s.length > 0);
         } else {
             allDirs.push(primaryStacksDir);
-        }
-
-        if (envStacks) {
-            let additionalDirs = envStacks.split(":").map(s => s.trim()).filter(s => s.length > 0);
-            allDirs = allDirs.concat(additionalDirs);
         }
 
         return {
