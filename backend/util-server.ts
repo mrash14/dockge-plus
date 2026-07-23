@@ -129,7 +129,7 @@ export async function verifyProxiedEventAccess(socket: DockgeSocket, endpoint: s
             stackNameIndex = 0;
             break;
         case "dockerStats":
-            requiredPermission = Permission.STACK_VIEW;
+            // Normal users can view docker stats.
             break;
 
         // Create/Edit
@@ -170,12 +170,11 @@ export async function verifyProxiedEventAccess(socket: DockgeSocket, endpoint: s
 
         // Terminal
         case "terminalJoin":
-            requiredPermission = Permission.STACK_LOGS;
             if (typeof args[0] === "string") {
                 const parts = args[0].split("-");
                 if (parts.length >= 2) {
                     const stackName = parts[1];
-                    await checkStackAccess(socket, stackName, endpoint);
+                    await checkStackAccess(socket, stackName, endpoint, Permission.STACK_LOGS);
                 }
             }
             break;
@@ -191,15 +190,25 @@ export async function verifyProxiedEventAccess(socket: DockgeSocket, endpoint: s
             break;
     }
 
-    if (requiredPermission) {
-        await checkPermission(socket, requiredPermission);
-    }
-
     if (stackNameIndex >= 0 && typeof args[stackNameIndex] === "string") {
+        const stackName = args[stackNameIndex] as string;
+
         if (endpoint === ALL_ENDPOINTS) {
             throw new Error("Cannot send stack-specific events to all endpoints simultaneously for security reasons.");
         }
-        await checkStackAccess(socket, args[stackNameIndex] as string, endpoint);
+
+        if (requiredPermission === Permission.STACK_CREATE) {
+            await checkStackAccess(socket, "*", endpoint, Permission.STACK_CREATE);
+        } else if (requiredPermission) {
+            await checkStackAccess(socket, stackName, endpoint, requiredPermission);
+        } else {
+            await checkStackAccess(socket, stackName, endpoint);
+        }
+
+    } else {
+        if (requiredPermission) {
+            await checkPermission(socket, requiredPermission);
+        }
     }
 }
 
