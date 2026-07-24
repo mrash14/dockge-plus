@@ -185,6 +185,9 @@ export class AgentManager {
                     const userType = this.socket.userType || UserType.ADMIN;
                     const accessibleNames = await getAccessibleStackNames(this.socket.userID, userType, endpoint);
                     
+                    console.log("AGENT PROXY DEBUG - endpoint:", endpoint, "user:", this.socket.userID, "type:", userType, "accessibleNames:", accessibleNames);
+                    console.log("AGENT PROXY DEBUG - BEFORE filter stack keys:", Object.keys(res.stackList));
+
                     if (accessibleNames !== null) {
                         let filteredStackList: Record<string, any> = {};
                         for (let stackName in res.stackList) {
@@ -194,6 +197,7 @@ export class AgentManager {
                         }
                         res.stackList = filteredStackList;
                     }
+                    console.log("AGENT PROXY DEBUG - AFTER filter stack keys:", Object.keys(res.stackList));
                 }
             }
             this.socket.emit("agent", ...args);
@@ -328,6 +332,7 @@ export class AgentManager {
         }
 
         const userType = this.socket.userType || UserType.ADMIN;
+        console.log("SEND AGENT LIST - userID:", this.socket.userID, "userType:", userType, "result keys BEFORE:", Object.keys(result));
         if (userType !== UserType.ADMIN && this.socket.userID) {
             const rows = await R.getAll(
                 "SELECT DISTINCT endpoint FROM user_stack_access WHERE user_id = ?",
@@ -335,6 +340,8 @@ export class AgentManager {
             );
             const accessibleEndpoints = rows.map((r: any) => r.endpoint);
             const hasWildcard = accessibleEndpoints.includes("*");
+            
+            console.log("SEND AGENT LIST - accessibleEndpoints:", accessibleEndpoints, "hasWildcard:", hasWildcard);
 
             if (!hasWildcard) {
                 let filteredResult : Record<string, LooseObject> = {};
@@ -346,6 +353,7 @@ export class AgentManager {
                 result = filteredResult;
             }
         }
+        console.log("SEND AGENT LIST - result keys AFTER:", Object.keys(result));
 
         this.socket.emit("agentList", {
             ok: true,
