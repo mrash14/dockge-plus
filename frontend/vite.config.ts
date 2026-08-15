@@ -14,7 +14,7 @@ export default defineConfig({
     css: {
         postcss: {
             plugins: [
-                postcssRtlcss({ mode: 'override' })
+                postcssRtlcss({ mode: "override" })
             ]
         }
     },

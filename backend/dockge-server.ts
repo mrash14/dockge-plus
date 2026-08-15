@@ -91,7 +91,7 @@ export class DockgeServer {
         // Catch unexpected errors here
         let unexpectedErrorHandler = (error : unknown) => {
             console.trace(error);
-            console.error("If you keep encountering errors, please report to https://github.com/louislam/dockge");
+            console.error("If you keep encountering errors, please report to https://github.com/mrash14/dockge-plus");
         };
         process.addListener("unhandledRejection", unexpectedErrorHandler);
         process.addListener("uncaughtException", unexpectedErrorHandler);
@@ -384,12 +384,12 @@ export class DockgeServer {
             // Get user's access rules from the database
             const rows = await R.getAll(
                 "SELECT stack_name, endpoint, access_level FROM user_stack_access WHERE user_id = ?",
-                [socket.userID]
+                [ socket.userID ]
             );
 
             socket.emit("userStackPermissions", {
                 isAdmin: false,
-                accessRules: rows.map((row: any) => ({
+                accessRules: (rows as LooseObject[]).map((row) => ({
                     stackName: row.stack_name,
                     endpoint: row.endpoint,
                     accessLevel: row.access_level,
@@ -808,7 +808,7 @@ export class DockgeServer {
 
         return {
             configStacksDir: allDirs[0],
-            stacksDirs: [...new Set(allDirs)]
+            stacksDirs: [ ...new Set(allDirs) ]
         };
     }
 }

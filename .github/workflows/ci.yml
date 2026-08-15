@@ -1,33 +1,38 @@
-name: Node.js CI - Dockge
+name: CI - Dockge-plus
 
 on:
   push:
     branches: [master]
     paths-ignore:
       - '*.md'
+      - 'docs/**'
   pull_request:
     branches: [master]
     paths-ignore:
       - '*.md'
+      - 'docs/**'
 
 jobs:
   ci:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, ARM, ARM64]
-        node: [22] # Can be changed
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [22]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Code
-        run: |  # Mainly for Windows
+      - name: Configure Git for Windows
+        if: runner.os == 'Windows'
+        run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
+
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{matrix.node}}
+          node-version: ${{ matrix.node }}
 
       - name: Install dependencies
         run: npm install
@@ -38,7 +43,9 @@ jobs:
       - name: Check Typescript
         run: npm run check-ts
 
+      - name: Test
+        if: runner.os == 'Linux'
+        run: npm test
+
       - name: Build
         run: npm run build:frontend
-      # more things can be add later like tests etc..
-

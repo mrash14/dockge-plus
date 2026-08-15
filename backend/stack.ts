@@ -12,7 +12,6 @@ import {
     CREATED_STACK,
     EXITED, getCombinedTerminalName,
     getComposeTerminalName, getContainerExecTerminalName,
-    PROGRESS_TERMINAL_ROWS,
     RUNNING, TERMINAL_ROWS,
     UNKNOWN
 } from "../common/util-common";
@@ -289,7 +288,9 @@ export class Stack {
 
             // Scan all stacks directories
             for (const stacksDir of server.stacksDirs) {
-                if (!await fileExists(stacksDir)) continue;
+                if (!await fileExists(stacksDir)) {
+                    continue;
+                }
 
                 let filenameList = await fsAsync.readdir(stacksDir);
 
@@ -402,7 +403,7 @@ export class Stack {
 
         if (!skipFSOperations) {
             stack = new Stack(server, stackName, undefined, undefined, false, parentDir);
-            
+
             if (!await fileExists(stack.path) || !(await fsAsync.stat(stack.path)).isDirectory()) {
                 // Maybe it is a stack managed by docker compose directly
                 let stackList = await this.getStackList(server, true);

@@ -152,7 +152,7 @@ export default {
                 } else {
                     this.settings = {};
                 }
-                
+
                 if (this.settings.checkUpdate === undefined) {
                     this.settings.checkUpdate = true;
                 }

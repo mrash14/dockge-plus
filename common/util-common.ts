@@ -112,7 +112,7 @@ export const USER_TYPE_ADMIN = "admin";
 export const USER_TYPE_NORMAL = "normal";
 
 /** All available user types */
-export const ALL_USER_TYPES = [USER_TYPE_ADMIN, USER_TYPE_NORMAL] as const;
+export const ALL_USER_TYPES = [ USER_TYPE_ADMIN, USER_TYPE_NORMAL ] as const;
 
 /** Display labels for user types (used in frontend) */
 export const USER_TYPE_LABELS: Record<string, string> = {
@@ -126,7 +126,7 @@ export const ACCESS_LEVEL_OPERATOR = "operator";
 export const ACCESS_LEVEL_MANAGER = "manager";
 
 /** All access levels ordered by privilege (lowest to highest) */
-export const ALL_ACCESS_LEVELS = [ACCESS_LEVEL_VIEWER, ACCESS_LEVEL_OPERATOR, ACCESS_LEVEL_MANAGER] as const;
+export const ALL_ACCESS_LEVELS = [ ACCESS_LEVEL_VIEWER, ACCESS_LEVEL_OPERATOR, ACCESS_LEVEL_MANAGER ] as const;
 
 /** Display labels for access levels */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {

@@ -1,4 +1,5 @@
 import { R } from "redbean-node";
+import { LooseObject } from "../common/util-common";
 
 export const UserType = {
     ADMIN: "admin",
@@ -43,7 +44,7 @@ export function hasPermission(userType: string, accessLevel: string | null, perm
 
         switch (accessLevel) {
             case AccessLevel.VIEWER:
-                return [Permission.STACK_VIEW, Permission.STACK_LOGS].includes(permission);
+                return [ Permission.STACK_VIEW, Permission.STACK_LOGS ].includes(permission);
             case AccessLevel.OPERATOR:
                 return [
                     Permission.STACK_VIEW,
@@ -78,18 +79,19 @@ export async function hasStackAccess(userId: number, userType: string, stackName
         return true;
     }
 
-    const access = await R.findOne("user_stack_access", 
-        " user_id = ? AND (endpoint = ? OR endpoint = '*') AND (stack_name = ? OR stack_name = '*') ", 
-        [userId, endpoint, stackName]
+    const access = await R.findOne("user_stack_access",
+        " user_id = ? AND (endpoint = ? OR endpoint = '*') AND (stack_name = ? OR stack_name = '*') ",
+        [ userId, endpoint, stackName ]
     );
 
     return !!access;
 }
 
 export async function getEffectiveAccessLevel(userId: number, stackName: string, endpoint: string = ""): Promise<string | null> {
-    const access = await R.findOne("user_stack_access", 
-        " user_id = ? AND (endpoint = ? OR endpoint = '*') AND (stack_name = ? OR stack_name = '*') ORDER BY access_level DESC ", 
-        [userId, endpoint, stackName]
+    // Use explicit numeric ranking to avoid wrong alphabetical ordering of viewer/operator/manager
+    const access = await R.findOne("user_stack_access",
+        " user_id = ? AND (endpoint = ? OR endpoint = '*') AND (stack_name = ? OR stack_name = '*') ORDER BY CASE access_level WHEN 'manager' THEN 3 WHEN 'operator' THEN 2 WHEN 'viewer' THEN 1 ELSE 0 END DESC ",
+        [ userId, endpoint, stackName ]
     );
 
     return access ? access.access_level : null;
@@ -112,7 +114,7 @@ export async function getAccessibleStackNames(userId: number, userType: string, 
     // Check for wildcard entries first
     const wildcardAll = await R.findOne("user_stack_access",
         " user_id = ? AND endpoint = '*' AND stack_name = '*' ",
-        [userId]
+        [ userId ]
     );
     if (wildcardAll) {
         return null; // Access to all stacks on all endpoints
@@ -120,7 +122,7 @@ export async function getAccessibleStackNames(userId: number, userType: string, 
 
     const wildcardEndpoint = await R.findOne("user_stack_access",
         " user_id = ? AND (endpoint = ? OR endpoint = '*') AND stack_name = '*' ",
-        [userId, endpoint]
+        [ userId, endpoint ]
     );
     if (wildcardEndpoint) {
         return null; // Access to all stacks on this endpoint
@@ -128,10 +130,10 @@ export async function getAccessibleStackNames(userId: number, userType: string, 
 
     const rows = await R.getAll(
         "SELECT stack_name FROM user_stack_access WHERE user_id = ? AND (endpoint = ? OR endpoint = '*')",
-        [userId, endpoint]
+        [ userId, endpoint ]
     );
 
-    return rows
-        .map((row: any) => row.stack_name)
+    return (rows as LooseObject[])
+        .map((row) => row.stack_name)
         .filter((name: string) => name !== "*");
 }

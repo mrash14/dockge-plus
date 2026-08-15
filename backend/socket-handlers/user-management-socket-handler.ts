@@ -77,7 +77,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                 }
 
                 // Check if username already exists
-                const existingUser = await R.findOne("user", " username = ? ", [username.trim()]);
+                const existingUser = await R.findOne("user", " username = ? ", [ username.trim() ]);
                 if (existingUser) {
                     throw new ValidationError("Username already exists");
                 }
@@ -129,7 +129,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new ValidationError("User ID is required");
                 }
 
-                const user = await R.findOne("user", " id = ? ", [id]);
+                const user = await R.findOne("user", " id = ? ", [ id ]);
                 if (!user) {
                     throw new Error("User not found");
                 }
@@ -201,13 +201,13 @@ export class UserManagementSocketHandler extends SocketHandler {
                     throw new Error("Cannot delete your own account");
                 }
 
-                const user = await R.findOne("user", " id = ? ", [userId]);
+                const user = await R.findOne("user", " id = ? ", [ userId ]);
                 if (!user) {
                     throw new Error("User not found");
                 }
 
                 // Delete stack access records first (cascade should handle, but be explicit)
-                await R.exec("DELETE FROM user_stack_access WHERE user_id = ?", [userId]);
+                await R.exec("DELETE FROM user_stack_access WHERE user_id = ?", [ userId ]);
                 await R.trash(user);
 
                 // Disconnect the deleted user's sessions
@@ -239,7 +239,7 @@ export class UserManagementSocketHandler extends SocketHandler {
 
                 const accessList = await R.getAll(
                     "SELECT id, stack_name, endpoint, access_level FROM user_stack_access WHERE user_id = ? ORDER BY endpoint, stack_name",
-                    [userId]
+                    [ userId ]
                 );
 
                 callbackResult({
@@ -279,7 +279,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                 }
 
                 // Check that user exists
-                const user = await R.findOne("user", " id = ? ", [userId]);
+                const user = await R.findOne("user", " id = ? ", [ userId ]);
                 if (!user) {
                     throw new Error("User not found");
                 }
@@ -303,7 +303,7 @@ export class UserManagementSocketHandler extends SocketHandler {
                 }
 
                 // Delete existing access
-                await R.exec("DELETE FROM user_stack_access WHERE user_id = ?", [userId]);
+                await R.exec("DELETE FROM user_stack_access WHERE user_id = ?", [ userId ]);
 
                 // Insert new access entries
                 for (const access of stackAccess) {

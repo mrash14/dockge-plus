@@ -184,20 +184,19 @@ export class AgentManager {
                 if (res && res.stackList) {
                     const userType = this.socket.userType || UserType.ADMIN;
                     const accessibleNames = await getAccessibleStackNames(this.socket.userID, userType, endpoint);
-                    
-                    console.log("AGENT PROXY DEBUG - endpoint:", endpoint, "user:", this.socket.userID, "type:", userType, "accessibleNames:", accessibleNames);
-                    console.log("AGENT PROXY DEBUG - BEFORE filter stack keys:", Object.keys(res.stackList));
+
+                    log.debug("agent-manager", `stackList filter — endpoint: ${endpoint} user: ${this.socket.userID} type: ${userType} accessible: ${JSON.stringify(accessibleNames)}`);
 
                     if (accessibleNames !== null) {
-                        let filteredStackList: Record<string, any> = {};
+                        let filteredStackList: Record<string, unknown> = {};
                         for (let stackName in res.stackList) {
                             if (accessibleNames.includes(stackName)) {
                                 filteredStackList[stackName] = res.stackList[stackName];
                             }
                         }
                         res.stackList = filteredStackList;
+                        log.debug("agent-manager", `stackList after filter — keys: ${Object.keys(res.stackList).join(", ")}`);
                     }
-                    console.log("AGENT PROXY DEBUG - AFTER filter stack keys:", Object.keys(res.stackList));
                 }
             }
             this.socket.emit("agent", ...args);
@@ -221,9 +220,9 @@ export class AgentManager {
         if (userType !== UserType.ADMIN && this.socket.userID) {
             const rows = await R.getAll(
                 "SELECT DISTINCT endpoint FROM user_stack_access WHERE user_id = ?",
-                [this.socket.userID]
+                [ this.socket.userID ]
             );
-            const accessibleEndpoints = rows.map((r: any) => r.endpoint);
+            const accessibleEndpoints = (rows as LooseObject[]).map((r) => r.endpoint);
             const hasWildcard = accessibleEndpoints.includes("*");
 
             if (!hasWildcard && !accessibleEndpoints.includes(endpoint)) {
@@ -332,16 +331,15 @@ export class AgentManager {
         }
 
         const userType = this.socket.userType || UserType.ADMIN;
-        console.log("SEND AGENT LIST - userID:", this.socket.userID, "userType:", userType, "result keys BEFORE:", Object.keys(result));
         if (userType !== UserType.ADMIN && this.socket.userID) {
             const rows = await R.getAll(
                 "SELECT DISTINCT endpoint FROM user_stack_access WHERE user_id = ?",
-                [this.socket.userID]
+                [ this.socket.userID ]
             );
-            const accessibleEndpoints = rows.map((r: any) => r.endpoint);
+            const accessibleEndpoints = (rows as LooseObject[]).map((r) => r.endpoint);
             const hasWildcard = accessibleEndpoints.includes("*");
-            
-            console.log("SEND AGENT LIST - accessibleEndpoints:", accessibleEndpoints, "hasWildcard:", hasWildcard);
+
+            log.debug("agent-manager", `sendAgentList — user: ${this.socket.userID} accessible endpoints: ${JSON.stringify(accessibleEndpoints)} wildcard: ${hasWildcard}`);
 
             if (!hasWildcard) {
                 let filteredResult : Record<string, LooseObject> = {};
@@ -353,7 +351,6 @@ export class AgentManager {
                 result = filteredResult;
             }
         }
-        console.log("SEND AGENT LIST - result keys AFTER:", Object.keys(result));
 
         this.socket.emit("agentList", {
             ok: true,

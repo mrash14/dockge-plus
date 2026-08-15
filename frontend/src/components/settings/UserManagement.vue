@@ -244,12 +244,12 @@ export default {
 
         userTypeBadgeClass(userType) {
             switch (userType) {
-            case "admin":
-                return "bg-danger";
-            case "normal":
-                return "bg-primary";
-            default:
-                return "bg-secondary";
+                case "admin":
+                    return "bg-danger";
+                case "normal":
+                    return "bg-primary";
+                default:
+                    return "bg-secondary";
             }
         },
 

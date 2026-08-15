@@ -2,7 +2,7 @@
     <div class="d-flex justify-content-center align-items-center">
         <div class="logo d-flex flex-column justify-content-center align-items-center">
             <object class="my-4" width="200" height="200" data="/icon.svg" />
-            <div class="fs-4 fw-bold">Dockge</div>
+            <div class="fs-4 fw-bold">Dockge Plus</div>
             <div>{{ $t("Version") }}: {{ $root.info.version }}</div>
             <div class="frontend-version">{{ $t("Frontend Version") }}: {{ $root.frontendVersion }}</div>
 
@@ -10,7 +10,7 @@
                 ⚠️ {{ $t("Frontend Version do not match backend version!") }}
             </div>
 
-            <div class="my-3 update-link"><a href="https://github.com/louislam/dockge/releases" target="_blank" rel="noopener">{{ $t("Check Update On GitHub") }}</a></div>
+            <div class="my-3 update-link"><a href="https://github.com/mrash14/dockge-plus/releases" target="_blank" rel="noopener">{{ $t("Check Update On GitHub") }}</a></div>
 
             <div class="mt-1">
                 <div class="form-check">

@@ -245,7 +245,7 @@
 
             <div v-if="accessDenied && !processing" class="mb-3">
                 <div class="shadow-box big-padding text-center">
-                    <h3 class="mb-3 text-danger"><font-awesome-icon icon="exclamation-circle" class="me-2"/>{{ $t("Access Denied") }}</h3>
+                    <h3 class="mb-3 text-danger"><font-awesome-icon icon="exclamation-circle" class="me-2" />{{ $t("Access Denied") }}</h3>
                     <p>{{ $t("You do not have permission to view this stack.") }}</p>
                 </div>
             </div>

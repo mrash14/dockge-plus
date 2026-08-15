@@ -127,7 +127,7 @@ export default defineComponent({
                 return true;
             }
             return this.stackAccessRules.some(
-                (rule: { stackName: string, accessLevel: string }) => 
+                (rule: { stackName: string, accessLevel: string }) =>
                     rule.stackName === "*" && this._accessLevelRank(rule.accessLevel) >= 3
             );
         },
@@ -179,7 +179,7 @@ export default defineComponent({
     methods: {
 
         endpointDisplayFunction(endpoint : string) {
-            for (const [ k, v ] of Object.entries(this.$data.agentList)) {
+            for (const [ , v ] of Object.entries(this.$data.agentList)) {
                 if (endpoint) {
                     if (endpoint === v["endpoint"] && v["name"] !== "") {
                         return v["name"];
@@ -505,7 +505,7 @@ export default defineComponent({
             }
             // For normal users, non-admin permissions are allowed on the frontend
             // (server enforces per-stack access level)
-            const adminOnlyPermissions = ["user.manage", "agent.manage", "settings.edit", "terminal.console"];
+            const adminOnlyPermissions = [ "user.manage", "agent.manage", "settings.edit", "terminal.console" ];
             return !adminOnlyPermissions.includes(permission);
         },
 

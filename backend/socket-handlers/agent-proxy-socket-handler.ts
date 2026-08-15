@@ -1,10 +1,9 @@
 import { SocketHandler } from "../socket-handler.js";
 import { DockgeServer } from "../dockge-server";
 import { log } from "../log";
-import { checkLogin, checkPermission, DockgeSocket, verifyProxiedEventAccess } from "../util-server";
+import { checkLogin, DockgeSocket, verifyProxiedEventAccess } from "../util-server";
 import { AgentSocket } from "../../common/agent-socket";
 import { ALL_ENDPOINTS } from "../../common/util-common";
-import { Permission } from "../rbac";
 
 export class AgentProxySocketHandler extends SocketHandler {
 

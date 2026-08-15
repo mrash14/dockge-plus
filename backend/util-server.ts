@@ -1,13 +1,12 @@
 import { Socket } from "socket.io";
 import { Terminal } from "./terminal";
-import { randomBytes } from "crypto";
 import { log } from "./log";
 import { ERROR_TYPE_VALIDATION, ALL_ENDPOINTS } from "../common/util-common";
 import { R } from "redbean-node";
 import { verifyPassword } from "./password-hash";
 import fs from "fs";
 import { AgentManager } from "./agent-manager";
-import { Permission, hasPermission, hasStackAccess, hasStackPermission, UserType, getEffectiveAccessLevel } from "./rbac";
+import { Permission, hasPermission, hasStackAccess, hasStackPermission, UserType } from "./rbac";
 
 export interface JWTDecoded {
     username : string;
@@ -59,7 +58,7 @@ export function checkLogin(socket : DockgeSocket) {
 export async function checkPermission(socket : DockgeSocket, permission : string) {
     checkLogin(socket);
 
-    const user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
+    const user = await R.findOne("user", " id = ? AND active = 1 ", [ socket.userID ]);
     if (!user) {
         throw new Error("User not found or inactive.");
     }
@@ -89,7 +88,7 @@ export async function checkPermission(socket : DockgeSocket, permission : string
 export async function checkStackAccess(socket : DockgeSocket, stackName : string, endpoint : string = "", requiredPermission? : string) {
     checkLogin(socket);
 
-    const user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
+    const user = await R.findOne("user", " id = ? AND active = 1 ", [ socket.userID ]);
     if (!user) {
         throw new Error("User not found or inactive.");
     }
@@ -134,11 +133,12 @@ export async function verifyProxiedEventAccess(socket: DockgeSocket, endpoint: s
 
         // Create/Edit
         case "deployStack":
-        case "saveStack":
+        case "saveStack": {
             const isAdd = args[3] as boolean;
             requiredPermission = isAdd ? Permission.STACK_CREATE : Permission.STACK_EDIT;
             stackNameIndex = 0;
             break;
+        }
 
         // Delete
         case "deleteStack":

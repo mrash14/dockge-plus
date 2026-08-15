@@ -10,10 +10,8 @@ import { R } from "redbean-node";
 // These functions require a DockgeSocket mock and DB queries
 
 // Mock user data
-let mockUser: any = null;
+let mockUser: { id: number; user_type: string; active: number } | null = null;
 let mockAccessData: Array<{ user_id: number; stack_name: string; endpoint: string; access_level: string }> = [];
-
-
 
 // Import after mocks are set up
 import { checkPermission, checkStackAccess, DockgeSocket } from "./util-server";
@@ -29,9 +27,9 @@ describe("checkPermission (util-server)", () => {
         mockAccessData = [];
 
         // Mock R.findOne
-        (R as any).findOne = async (table: string, condition: string, params: any[]) => {
+        (R as unknown as Record<string, unknown>).findOne = async (table: string, condition: string, params: unknown[]) => {
             if (table === "user") {
-                if (mockUser && mockUser.id === params[0]) {
+                if (mockUser && mockUser.id === (params as number[])[0]) {
                     if (condition.includes("active = 1") && !mockUser.active) {
                         return null;
                     }
@@ -40,30 +38,62 @@ describe("checkPermission (util-server)", () => {
                 return null;
             }
             if (table === "user_stack_access") {
-                return mockAccessData.find(row => {
-                    if (row.user_id !== params[0]) return false;
-                    if (params.length > 1 && row.endpoint !== params[1]) return false;
-                    if (params.length > 2 && row.stack_name !== params[2]) return false;
+                const userId = (params as number[])[0];
+                const endpointParam = (params as string[])[1];
+                const stackParam = (params as string[])[2];
+
+                const strictEndpointWildcard = condition.includes("endpoint = '*'") && !condition.includes("endpoint = ?");
+                const strictStackWildcard = condition.includes("stack_name = '*'") && !condition.includes("stack_name = ?");
+
+                const candidates = mockAccessData.filter(row => {
+                    if (row.user_id !== userId) {
+                        return false;
+                    }
+                    if (strictEndpointWildcard && row.endpoint !== "*") {
+                        return false;
+                    }
+                    if (strictStackWildcard && row.stack_name !== "*") {
+                        return false;
+                    }
+                    if (!strictEndpointWildcard && endpointParam !== undefined) {
+                        if (row.endpoint !== endpointParam && row.endpoint !== "*") {
+                            return false;
+                        }
+                    }
+                    if (!strictStackWildcard && stackParam !== undefined) {
+                        if (row.stack_name !== stackParam && row.stack_name !== "*") {
+                            return false;
+                        }
+                    }
                     return true;
-                }) || null;
+                });
+
+                if (candidates.length === 0) {
+                    return null;
+                }
+                const rank: Record<string, number> = { manager: 3,
+                    operator: 2,
+                    viewer: 1 };
+                candidates.sort((a, b) => (rank[b.access_level] ?? 0) - (rank[a.access_level] ?? 0));
+                return candidates[0];
             }
             return null;
         };
 
         // Mock R.getAll
-        (R as any).getAll = async (query: string, params: any[]) => {
-            const userId = params[0];
+        (R as unknown as Record<string, unknown>).getAll = async (query: string, params: unknown[]) => {
+            const userId = (params as number[])[0];
             let results = mockAccessData.filter(row => row.user_id === userId);
 
             if (query.includes("access_level FROM")) {
-                const endpoint = params[1];
-                const stackName = params[2];
+                const endpoint = (params as string[])[1];
+                const stackName = (params as string[])[2];
                 results = results.filter(row =>
                     (row.endpoint === endpoint || row.endpoint === "*") &&
                     (row.stack_name === stackName || row.stack_name === "*")
                 );
             } else if (query.includes("stack_name FROM")) {
-                const endpoint = params[1];
+                const endpoint = (params as string[])[1];
                 results = results.filter(row =>
                     row.endpoint === endpoint || row.endpoint === "*"
                 );
@@ -86,20 +116,26 @@ describe("checkPermission (util-server)", () => {
 
     it("admin passes any permission check", async () => {
         const socket = createMockSocket(1);
-        mockUser = { id: 1, user_type: "admin", active: 1 };
+        mockUser = { id: 1,
+            user_type: "admin",
+            active: 1 };
         await assert.doesNotReject(() => checkPermission(socket, Permission.USER_MANAGE));
         await assert.doesNotReject(() => checkPermission(socket, Permission.SETTINGS_EDIT));
     });
 
     it("normal user is denied admin-only permissions", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         await assert.rejects(() => checkPermission(socket, Permission.USER_MANAGE), /permission denied/i);
     });
 
     it("inactive user is denied", async () => {
         const socket = createMockSocket(1);
-        mockUser = { id: 1, user_type: "admin", active: 0 };
+        mockUser = { id: 1,
+            user_type: "admin",
+            active: 0 };
         await assert.rejects(() => checkPermission(socket, Permission.STACK_VIEW), /not found/i);
     });
 });
@@ -110,9 +146,9 @@ describe("checkStackAccess (util-server)", () => {
         mockAccessData = [];
 
         // Mock R.findOne
-        (R as any).findOne = async (table: string, condition: string, params: any[]) => {
+        (R as unknown as Record<string, unknown>).findOne = async (table: string, condition: string, params: unknown[]) => {
             if (table === "user") {
-                if (mockUser && mockUser.id === params[0]) {
+                if (mockUser && mockUser.id === (params as number[])[0]) {
                     if (condition.includes("active = 1") && !mockUser.active) {
                         return null;
                     }
@@ -121,30 +157,62 @@ describe("checkStackAccess (util-server)", () => {
                 return null;
             }
             if (table === "user_stack_access") {
-                return mockAccessData.find(row => {
-                    if (row.user_id !== params[0]) return false;
-                    if (params.length > 1 && row.endpoint !== params[1]) return false;
-                    if (params.length > 2 && row.stack_name !== params[2]) return false;
+                const userId = (params as number[])[0];
+                const endpointParam = (params as string[])[1];
+                const stackParam = (params as string[])[2];
+
+                const strictEndpointWildcard = condition.includes("endpoint = '*'") && !condition.includes("endpoint = ?");
+                const strictStackWildcard = condition.includes("stack_name = '*'") && !condition.includes("stack_name = ?");
+
+                const candidates = mockAccessData.filter(row => {
+                    if (row.user_id !== userId) {
+                        return false;
+                    }
+                    if (strictEndpointWildcard && row.endpoint !== "*") {
+                        return false;
+                    }
+                    if (strictStackWildcard && row.stack_name !== "*") {
+                        return false;
+                    }
+                    if (!strictEndpointWildcard && endpointParam !== undefined) {
+                        if (row.endpoint !== endpointParam && row.endpoint !== "*") {
+                            return false;
+                        }
+                    }
+                    if (!strictStackWildcard && stackParam !== undefined) {
+                        if (row.stack_name !== stackParam && row.stack_name !== "*") {
+                            return false;
+                        }
+                    }
                     return true;
-                }) || null;
+                });
+
+                if (candidates.length === 0) {
+                    return null;
+                }
+                const rank: Record<string, number> = { manager: 3,
+                    operator: 2,
+                    viewer: 1 };
+                candidates.sort((a, b) => (rank[b.access_level] ?? 0) - (rank[a.access_level] ?? 0));
+                return candidates[0];
             }
             return null;
         };
 
         // Mock R.getAll
-        (R as any).getAll = async (query: string, params: any[]) => {
-            const userId = params[0];
+        (R as unknown as Record<string, unknown>).getAll = async (query: string, params: unknown[]) => {
+            const userId = (params as number[])[0];
             let results = mockAccessData.filter(row => row.user_id === userId);
 
             if (query.includes("access_level FROM")) {
-                const endpoint = params[1];
-                const stackName = params[2];
+                const endpoint = (params as string[])[1];
+                const stackName = (params as string[])[2];
                 results = results.filter(row =>
                     (row.endpoint === endpoint || row.endpoint === "*") &&
                     (row.stack_name === stackName || row.stack_name === "*")
                 );
             } else if (query.includes("stack_name FROM")) {
-                const endpoint = params[1];
+                const endpoint = (params as string[])[1];
                 results = results.filter(row =>
                     row.endpoint === endpoint || row.endpoint === "*"
                 );
@@ -156,39 +224,58 @@ describe("checkStackAccess (util-server)", () => {
 
     it("admin has access to any stack", async () => {
         const socket = createMockSocket(1);
-        mockUser = { id: 1, user_type: "admin", active: 1 };
+        mockUser = { id: 1,
+            user_type: "admin",
+            active: 1 };
         await assert.doesNotReject(() => checkStackAccess(socket, "my-stack", ""));
     });
 
     it("normal user without access entries is denied", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         await assert.rejects(() => checkStackAccess(socket, "my-stack", ""), /access denied/i);
     });
 
     it("normal user with exact access entry is allowed", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         mockAccessData = [
-            { user_id: 2, stack_name: "my-stack", endpoint: "", access_level: "viewer" },
+            { user_id: 2,
+                stack_name: "my-stack",
+                endpoint: "",
+                access_level: "viewer" },
         ];
         await assert.doesNotReject(() => checkStackAccess(socket, "my-stack", ""));
     });
 
     it("normal user with wildcard access is allowed", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         mockAccessData = [
-            { user_id: 2, stack_name: "*", endpoint: "*", access_level: "viewer" },
+            { user_id: 2,
+                stack_name: "*",
+                endpoint: "*",
+                access_level: "viewer" },
         ];
         await assert.doesNotReject(() => checkStackAccess(socket, "any-stack", "any-endpoint"));
     });
 
     it("normal user with viewer access is denied STACK_START permission", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         mockAccessData = [
-            { user_id: 2, stack_name: "my-stack", endpoint: "", access_level: "viewer" },
+            { user_id: 2,
+                stack_name: "my-stack",
+                endpoint: "",
+                access_level: "viewer" },
         ];
         await assert.rejects(
             () => checkStackAccess(socket, "my-stack", "", Permission.STACK_START),
@@ -198,9 +285,14 @@ describe("checkStackAccess (util-server)", () => {
 
     it("normal user with operator access is allowed STACK_START permission", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         mockAccessData = [
-            { user_id: 2, stack_name: "my-stack", endpoint: "", access_level: "operator" },
+            { user_id: 2,
+                stack_name: "my-stack",
+                endpoint: "",
+                access_level: "operator" },
         ];
         await assert.doesNotReject(
             () => checkStackAccess(socket, "my-stack", "", Permission.STACK_START)
@@ -209,10 +301,18 @@ describe("checkStackAccess (util-server)", () => {
 
     it("highest access level is used when multiple entries match", async () => {
         const socket = createMockSocket(2);
-        mockUser = { id: 2, user_type: "normal", active: 1 };
+        mockUser = { id: 2,
+            user_type: "normal",
+            active: 1 };
         mockAccessData = [
-            { user_id: 2, stack_name: "*", endpoint: "*", access_level: "viewer" },
-            { user_id: 2, stack_name: "my-stack", endpoint: "", access_level: "manager" },
+            { user_id: 2,
+                stack_name: "*",
+                endpoint: "*",
+                access_level: "viewer" },
+            { user_id: 2,
+                stack_name: "my-stack",
+                endpoint: "",
+                access_level: "manager" },
         ];
         // Manager can delete
         await assert.doesNotReject(

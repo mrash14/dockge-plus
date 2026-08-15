@@ -15,7 +15,7 @@ export async function up(knex: Knex): Promise<void> {
         table.string("stack_name", 255).notNullable();        // stack name or "*" for all
         table.string("endpoint", 255).notNullable().defaultTo("");  // agent endpoint, "" for local, "*" for all
         table.string("access_level", 50).notNullable().defaultTo("viewer"); // viewer, operator, manager
-        table.unique(["user_id", "stack_name", "endpoint"]);
+        table.unique([ "user_id", "stack_name", "endpoint" ]);
     });
 }
 

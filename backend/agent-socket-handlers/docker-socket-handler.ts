@@ -1,6 +1,6 @@
 import { AgentSocketHandler } from "../agent-socket-handler";
 import { DockgeServer } from "../dockge-server";
-import { callbackError, callbackResult, checkLogin, checkPermission, checkStackAccess, DockgeSocket, ValidationError } from "../util-server";
+import { callbackError, callbackResult, checkLogin, checkStackAccess, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
 import { Permission } from "../rbac";
@@ -370,7 +370,7 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
         // If isAdd is true and selectedStacksDir is provided, validate it
         if (isAdd && selectedStacksDir && !server.stacksDirs.includes(selectedStacksDir as string)) {
-             throw new ValidationError("Invalid selected stacks directory");
+            throw new ValidationError("Invalid selected stacks directory");
         }
 
         const stack = new Stack(server, name, composeYAML, composeENV, false, selectedStacksDir as string | undefined);
